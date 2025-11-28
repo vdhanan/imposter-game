@@ -1,0 +1,65 @@
+{
+  "objects": [
+    "bicycle", "telephone", "keyboard", "monitor", "backpack",
+    "umbrella", "camera", "wallet", "scissors", "pencil",
+    "notebook", "calculator", "headphones", "microwave", "toaster",
+    "lamp", "clock", "mirror", "pillow", "blanket",
+    "chair", "table", "sofa", "television", "refrigerator",
+    "bottle", "glasses", "watch", "bracelet", "necklace",
+    "ring", "earrings", "suitcase", "passport", "ticket",
+    "map", "compass", "telescope", "microscope", "thermometer",
+    "hammer", "screwdriver", "wrench", "pliers", "drill",
+    "ladder", "bucket", "broom", "vacuum", "iron",
+    "hairdryer", "toothbrush", "towel", "soap", "shampoo"
+  ],
+  "foods": [
+    "pizza", "burger", "pasta", "sushi", "sandwich",
+    "salad", "soup", "steak", "chicken", "fish",
+    "rice", "bread", "cheese", "eggs", "bacon",
+    "pancakes", "waffles", "cereal", "yogurt", "fruit",
+    "apple", "banana", "orange", "strawberry", "grape",
+    "watermelon", "pineapple", "mango", "peach", "cherry",
+    "chocolate", "ice cream", "cake", "cookie", "donut",
+    "muffin", "croissant", "bagel", "pretzel", "popcorn",
+    "chips", "crackers", "nuts", "candy", "honey",
+    "butter", "jam", "peanut butter", "ketchup", "mustard"
+  ],
+  "places": [
+    "beach", "mountain", "forest", "desert", "island",
+    "city", "village", "farm", "park", "garden",
+    "museum", "library", "school", "university", "hospital",
+    "airport", "station", "hotel", "restaurant", "cafe",
+    "gym", "stadium", "theater", "cinema", "mall",
+    "market", "store", "bakery", "pharmacy", "bank",
+    "church", "temple", "mosque", "synagogue", "cemetery",
+    "castle", "palace", "tower", "bridge", "tunnel",
+    "zoo", "aquarium", "circus", "carnival", "amusement park",
+    "playground", "swimming pool", "lake", "river", "waterfall"
+  ],
+  "animals": [
+    "dog", "cat", "horse", "cow", "pig",
+    "sheep", "goat", "chicken", "duck", "turkey",
+    "rabbit", "hamster", "guinea pig", "mouse", "rat",
+    "lion", "tiger", "bear", "elephant", "giraffe",
+    "zebra", "monkey", "gorilla", "chimpanzee", "orangutan",
+    "kangaroo", "koala", "panda", "penguin", "seal",
+    "dolphin", "whale", "shark", "octopus", "jellyfish",
+    "eagle", "hawk", "owl", "parrot", "peacock",
+    "flamingo", "swan", "crow", "sparrow", "pigeon",
+    "butterfly", "bee", "ant", "spider", "scorpion",
+    "snake", "lizard", "turtle", "crocodile", "frog"
+  ],
+  "common": [
+    "computer", "internet", "phone", "book", "music",
+    "movie", "game", "sport", "exercise", "dance",
+    "painting", "sculpture", "photography", "writing", "reading",
+    "cooking", "baking", "gardening", "fishing", "camping",
+    "hiking", "swimming", "running", "walking", "cycling",
+    "driving", "flying", "sailing", "skiing", "snowboarding",
+    "birthday", "wedding", "graduation", "anniversary", "holiday",
+    "vacation", "weekend", "morning", "afternoon", "evening",
+    "night", "sunrise", "sunset", "rainbow", "storm",
+    "rain", "snow", "wind", "cloud", "star",
+    "moon", "sun", "planet", "galaxy", "universe"
+  ]
+}

@@ -1,0 +1,91 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Lobby {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  ownerId   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  players   Player[]
+  rounds    Round[]
+}
+
+model Player {
+  id        String   @id @default(cuid())
+  lobbyId   String
+  name      String
+  score     Int      @default(0)
+  isOnline  Boolean  @default(true)
+  joinedAt  DateTime @default(now())
+
+  lobby     Lobby    @relation(fields: [lobbyId], references: [id], onDelete: Cascade)
+  hints     Hint[]
+  votes     Vote[]
+  votesReceived Vote[] @relation("VoteTarget")
+
+  @@unique([lobbyId, name])
+}
+
+model Round {
+  id          String   @id @default(cuid())
+  lobbyId     String
+  roundNumber Int
+  word        String
+  imposterId  String
+  turnOrder   String[] // Array of player IDs
+  currentTurn Int      @default(0)
+  status      RoundStatus @default(WAITING)
+  createdAt   DateTime @default(now())
+
+  lobby       Lobby    @relation(fields: [lobbyId], references: [id], onDelete: Cascade)
+  hints       Hint[]
+  votes       Vote[]
+
+  @@unique([lobbyId, roundNumber])
+}
+
+model Hint {
+  id        String   @id @default(cuid())
+  roundId   String
+  playerId  String
+  text      String
+  turnIndex Int
+  createdAt DateTime @default(now())
+
+  round     Round    @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  player    Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@unique([roundId, turnIndex])
+}
+
+model Vote {
+  id         String   @id @default(cuid())
+  roundId    String
+  voterId    String
+  suspectId  String
+  createdAt  DateTime @default(now())
+
+  round      Round    @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  voter      Player   @relation(fields: [voterId], references: [id], onDelete: Cascade)
+  suspect    Player   @relation("VoteTarget", fields: [suspectId], references: [id], onDelete: Cascade)
+
+  @@unique([roundId, voterId])
+}
+
+enum RoundStatus {
+  WAITING
+  IN_PROGRESS
+  HINTS_COMPLETE
+  VOTING
+  GUESSING
+  COMPLETE
+}
