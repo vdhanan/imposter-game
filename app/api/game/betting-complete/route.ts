@@ -17,6 +17,23 @@ export async function POST(req: Request) {
       return apiError('No active betting round', 404)
     }
 
+    const players = await prisma.player.findMany({
+      where: { lobbyId },
+    })
+
+    const bets = await prisma.bet.findMany({
+      where: { roundId: round.id },
+    })
+
+    const playerIdsWithBets = new Set(bets.map(bet => bet.bettorId))
+    const allPlayersHaveBet = players
+      .filter(player => player.id !== round.imposterId)
+      .every(player => playerIdsWithBets.has(player.id))
+
+    if (!allPlayersHaveBet) {
+      return apiError('Not all players have placed their bets', 400)
+    }
+
     await prisma.round.update({
       where: { id: round.id },
       data: { status: 'VOTING' },

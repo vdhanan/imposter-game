@@ -84,7 +84,14 @@ export async function POST(req: Request) {
     })
   } catch (error) {
     console.error('Error starting game:', error)
-    return apiError(error instanceof Error ? error.message : 'Failed to start game',
-                    error instanceof Error && error.message.includes('owner') ? 403 : 500)
+    if (error instanceof Error) {
+      if (error.message.includes('owner')) {
+        return apiError(error.message, 403)
+      } else if (error.message.includes('at least')) {
+        return apiError(error.message, 400)
+      }
+      return apiError(error.message, 500)
+    }
+    return apiError('Failed to start game', 500)
   }
 }

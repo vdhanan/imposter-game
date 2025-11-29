@@ -22,6 +22,7 @@ export async function POST(req: Request) {
 
     if (!round) return apiError('No betting phase active')
     if (round.bets.length > 0) return apiError('Already placed bet')
+    if (round.imposterId === bettorId) return apiError('Cannot place bet')
 
     // Validate players and points
     const [bettor, target] = await Promise.all([
