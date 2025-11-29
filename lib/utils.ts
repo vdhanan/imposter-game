@@ -1,38 +1,24 @@
 import wordsList from './words.json'
+import { GAME_CONFIG } from './constants'
 
-export function generateLobbyCode(): string {
+export const generateLobbyCode = () => {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
-  let code = ''
-  for (let i = 0; i < 6; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length))
-  }
-  return code
+  return Array.from(
+    { length: GAME_CONFIG.LOBBY_CODE_LENGTH },
+    () => chars[Math.floor(Math.random() * chars.length)]
+  ).join('')
 }
 
-export function getRandomWord(): string {
-  const allCategories = Object.values(wordsList).flat()
-  return allCategories[Math.floor(Math.random() * allCategories.length)]
+export const getRandomWord = () => {
+  const words = Object.values(wordsList).flat()
+  return words[Math.floor(Math.random() * words.length)]
 }
 
-export function shuffleArray<T>(array: T[]): T[] {
-  const shuffled = [...array]
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
-  }
-  return shuffled
-}
+export const shuffleArray = <T>(array: T[]): T[] =>
+  [...array].sort(() => Math.random() - 0.5)
 
-export function getMostVotedPlayer(votes: Record<string, string[]>): string {
-  let maxVotes = 0
-  let mostVoted = ''
-
-  for (const [suspectId, voters] of Object.entries(votes)) {
-    if (voters.length > maxVotes) {
-      maxVotes = voters.length
-      mostVoted = suspectId
-    }
-  }
-
-  return mostVoted
-}
+export const getMostVotedPlayer = (votes: Record<string, string[]>): string =>
+  Object.entries(votes).reduce(
+    (max, [id, voters]) => voters.length > (votes[max]?.length || 0) ? id : max,
+    ''
+  )

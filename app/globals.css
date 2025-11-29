@@ -40,6 +40,15 @@ select {
   background-color: white;
 }
 
+/* Ensure text in game components with light backgrounds always has dark text */
+.bg-white span,
+.bg-white button,
+.bg-gray-50 span,
+.bg-purple-50 span,
+.bg-purple-50 button {
+  color: rgb(31, 41, 55); /* gray-800 */
+}
+
 input::placeholder,
 textarea::placeholder {
   color: rgb(156, 163, 175); /* gray-400 */

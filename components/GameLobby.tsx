@@ -28,7 +28,7 @@ export default function GameLobby({ lobbyId }: GameLobbyProps) {
     setPlayerName(name)
   }, [router])
 
-  const { lobby, role, word, isMyTurn, votingResults, guessPrompt, votedPlayers } = useGameState({
+  const { lobby, role, word, isMyTurn, votingResults, guessPrompt, votedPlayers, roundResult, gameWinner } = useGameState({
     lobbyId,
     playerId: playerId || '',
   })
@@ -55,10 +55,11 @@ export default function GameLobby({ lobbyId }: GameLobbyProps) {
     }
   }
 
-  const copyLobbyCode = () => {
+  const copyLobbyLink = () => {
     if (lobby) {
-      navigator.clipboard.writeText(lobby.code)
-      alert('Lobby code copied!')
+      const url = `${window.location.origin}/join/${lobby.code}`
+      navigator.clipboard.writeText(url)
+      alert('Lobby link copied!')
     }
   }
 
@@ -83,6 +84,8 @@ export default function GameLobby({ lobbyId }: GameLobbyProps) {
         votingResults={votingResults}
         guessPrompt={guessPrompt}
         votedPlayers={votedPlayers}
+        roundResult={roundResult}
+        gameWinner={gameWinner}
       />
     )
   }
@@ -100,16 +103,16 @@ export default function GameLobby({ lobbyId }: GameLobbyProps) {
               <p className="text-gray-600">Waiting for players to join...</p>
             </div>
             <div className="text-right">
-              <p className="text-sm text-gray-600 mb-1">Lobby Code</p>
+              <p className="text-sm text-gray-600 mb-1">Share Lobby</p>
               <div className="flex items-center gap-2">
                 <span className="text-2xl font-mono font-bold text-purple-600">
                   {lobby.code}
                 </span>
                 <button
-                  onClick={copyLobbyCode}
-                  className="px-3 py-1 bg-gray-200 hover:bg-gray-300 rounded text-sm"
+                  onClick={copyLobbyLink}
+                  className="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded text-sm"
                 >
-                  Copy
+                  Copy Link
                 </button>
               </div>
             </div>

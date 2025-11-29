@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { usePusher } from './usePusher'
-import type { LobbyData, PlayerData, RoundData, HintData, VoteResults, PusherEvent } from '@/lib/types'
+import type { LobbyData, PlayerData, RoundData, HintData, VoteResults, PusherEvent, RoundResult } from '@/lib/types'
 
 interface GameStateProps {
   lobbyId: string
@@ -15,6 +15,8 @@ export function useGameState({ lobbyId, playerId }: GameStateProps) {
   const [votingResults, setVotingResults] = useState<VoteResults | null>(null)
   const [guessPrompt, setGuessPrompt] = useState(false)
   const [votedPlayers, setVotedPlayers] = useState<string[]>([])
+  const [roundResult, setRoundResult] = useState<RoundResult | null>(null)
+  const [gameWinner, setGameWinner] = useState<PlayerData | null>(null)
   const { subscribe, unsubscribe } = usePusher()
 
   // Fetch initial lobby data
@@ -63,9 +65,12 @@ export function useGameState({ lobbyId, playerId }: GameStateProps) {
             ...prev,
             state: 'IN_PROGRESS',
             currentRound: event.round,
+            targetScore: event.targetScore || 7,
           } : null)
           const firstPlayerId = event.round.turnOrder[0]
           setIsMyTurn(firstPlayerId === playerId)
+          setRoundResult(null)
+          setGameWinner(null)
           break
 
         case 'HINT_SUBMITTED':
@@ -112,18 +117,52 @@ export function useGameState({ lobbyId, playerId }: GameStateProps) {
           }
           break
 
-        case 'ROUND_COMPLETE':
+        case 'ROUND_RESULTS':
+          setRoundResult(event.result)
           setLobby(prev => {
             if (!prev) return prev
             return {
               ...prev,
-              state: 'ROUND_END',
+              state: 'ROUND_RESULTS',
               players: prev.players.map(p => ({
                 ...p,
-                score: event.scores[p.id] || p.score,
+                score: event.result.newScores[p.id] || p.score,
               })),
             }
           })
+          setVotingResults(null)
+          setGuessPrompt(false)
+          break
+
+        case 'GAME_OVER':
+          setGameWinner(event.winner)
+          setLobby(prev => {
+            if (!prev) return prev
+            return {
+              ...prev,
+              state: 'GAME_OVER',
+              players: prev.players.map(p => ({
+                ...p,
+                score: event.finalScores[p.id] || p.score,
+              })),
+            }
+          })
+          break
+
+        case 'GAME_RESTARTED':
+          setLobby(prev => prev ? {
+            ...prev,
+            state: 'LOBBY',
+            currentRound: undefined,
+            players: prev.players.map(p => ({ ...p, score: 0 })),
+          } : null)
+          setRole(null)
+          setWord(null)
+          setRoundResult(null)
+          setGameWinner(null)
+          setVotingResults(null)
+          setGuessPrompt(false)
+          setVotedPlayers([])
           break
       }
     })
@@ -155,6 +194,8 @@ export function useGameState({ lobbyId, playerId }: GameStateProps) {
     votingResults,
     guessPrompt,
     votedPlayers,
+    roundResult,
+    gameWinner,
     refetch: fetchLobby,
   }
 }

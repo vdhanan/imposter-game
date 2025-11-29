@@ -1,38 +1,23 @@
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { pusherServer } from '@/lib/pusher'
 import { getRandomWord, shuffleArray } from '@/lib/utils'
+import { apiError, apiSuccess, getLobbyWithPlayers, verifyLobbyOwner, verifyMinPlayers } from '@/lib/api-helpers'
 import type { PusherEvent } from '@/lib/types'
 
 export async function POST(req: Request) {
   try {
     const { lobbyId, playerId } = await req.json()
 
-    // Verify lobby and player is owner
-    const lobby = await prisma.lobby.findUnique({
-      where: { id: lobbyId },
-      include: {
-        players: true,
-        rounds: {
-          where: { status: { not: 'COMPLETE' } },
-        },
-      },
+    const lobby = await getLobbyWithPlayers(lobbyId)
+    verifyLobbyOwner(lobby, playerId)
+    verifyMinPlayers(lobby.players)
+
+    const activeRounds = await prisma.round.findMany({
+      where: { lobbyId, status: { not: 'COMPLETE' } }
     })
 
-    if (!lobby) {
-      return NextResponse.json({ error: 'Lobby not found' }, { status: 404 })
-    }
-
-    if (lobby.ownerId !== playerId) {
-      return NextResponse.json({ error: 'Only lobby owner can start game' }, { status: 403 })
-    }
-
-    if (lobby.players.length < 3) {
-      return NextResponse.json({ error: 'Need at least 3 players to start' }, { status: 400 })
-    }
-
-    if (lobby.rounds.length > 0) {
-      return NextResponse.json({ error: 'Game already in progress' }, { status: 400 })
+    if (activeRounds.length > 0) {
+      return apiError('Game already in progress')
     }
 
     // Get next round number
@@ -86,11 +71,12 @@ export async function POST(req: Request) {
         hints: [],
         status: round.status,
       },
+      targetScore: lobby.targetScore || 7,
     }
 
     await pusherServer.trigger(`lobby-${lobbyId}`, 'game-event', event)
 
-    return NextResponse.json({
+    return apiSuccess({
       roundId: round.id,
       roundNumber: round.roundNumber,
       turnOrder,
@@ -98,6 +84,7 @@ export async function POST(req: Request) {
     })
   } catch (error) {
     console.error('Error starting game:', error)
-    return NextResponse.json({ error: 'Failed to start game' }, { status: 500 })
+    return apiError(error instanceof Error ? error.message : 'Failed to start game',
+                    error instanceof Error && error.message.includes('owner') ? 403 : 500)
   }
 }

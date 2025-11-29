@@ -1,24 +1,23 @@
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { generateLobbyCode } from '@/lib/utils'
+import { apiError, apiSuccess } from '@/lib/api-helpers'
 import { v4 as uuidv4 } from 'uuid'
 
 export async function POST(req: Request) {
   try {
     const { playerName } = await req.json()
 
-    if (!playerName || playerName.trim().length < 1) {
-      return NextResponse.json({ error: 'Player name is required' }, { status: 400 })
+    if (!playerName?.trim()) {
+      return apiError('Player name is required')
     }
 
-    let code: string
-    let existingLobby
+    const generateUniqueCode = async (): Promise<string> => {
+      const code = generateLobbyCode()
+      const exists = await prisma.lobby.findUnique({ where: { code } })
+      return exists ? generateUniqueCode() : code
+    }
 
-    // Generate unique lobby code
-    do {
-      code = generateLobbyCode()
-      existingLobby = await prisma.lobby.findUnique({ where: { code } })
-    } while (existingLobby)
+    const code = await generateUniqueCode()
 
     const playerId = uuidv4()
 
@@ -39,7 +38,7 @@ export async function POST(req: Request) {
       },
     })
 
-    return NextResponse.json({
+    return apiSuccess({
       lobbyId: lobby.id,
       lobbyCode: lobby.code,
       playerId,
@@ -47,6 +46,6 @@ export async function POST(req: Request) {
     })
   } catch (error) {
     console.error('Error creating lobby:', error)
-    return NextResponse.json({ error: 'Failed to create lobby' }, { status: 500 })
+    return apiError('Failed to create lobby', 500)
   }
 }

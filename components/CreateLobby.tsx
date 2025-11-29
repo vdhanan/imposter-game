@@ -2,44 +2,38 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { GAME_CONFIG } from '@/lib/constants'
+import { useAsyncAction } from '@/lib/hooks'
 
 export default function CreateLobby() {
   const [name, setName] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
   const router = useRouter()
+  const { execute, loading, error } = useAsyncAction()
+
+  const createLobby = async (playerName: string) => {
+    const response = await fetch('/api/lobby/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ playerName }),
+    })
+
+    if (!response.ok) {
+      const data = await response.json()
+      throw new Error(data.error || 'Failed to create lobby')
+    }
+
+    return response.json()
+  }
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!name.trim() || loading) return
 
-    setLoading(true)
-    setError('')
-
-    try {
-      const response = await fetch('/api/lobby/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ playerName: name }),
-      })
-
-      if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.error || 'Failed to create lobby')
-      }
-
-      const data = await response.json()
-
-      // Store player info in localStorage
+    const data = await execute(createLobby, name)
+    if (data) {
       localStorage.setItem('playerId', data.playerId)
       localStorage.setItem('playerName', data.playerName)
-
-      // Redirect to lobby
       router.push(`/lobby/${data.lobbyId}`)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong')
-    } finally {
-      setLoading(false)
     }
   }
 
@@ -61,7 +55,7 @@ export default function CreateLobby() {
               onChange={(e) => setName(e.target.value)}
               placeholder="Enter your name"
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-              maxLength={20}
+              maxLength={GAME_CONFIG.MAX_PLAYER_NAME_LENGTH}
               required
             />
           </div>

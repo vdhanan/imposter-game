@@ -9,14 +9,15 @@ datasource db {
 }
 
 model Lobby {
-  id        String   @id @default(cuid())
-  code      String   @unique
-  ownerId   String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String   @id @default(cuid())
+  code        String   @unique
+  ownerId     String
+  targetScore Int      @default(7)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  players   Player[]
-  rounds    Round[]
+  players     Player[]
+  rounds      Round[]
 }
 
 model Player {
