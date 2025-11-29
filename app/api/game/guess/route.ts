@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
-import { pusherServer } from '@/lib/pusher'
-import type { PusherEvent, RoundResult } from '@/lib/types'
+import { processBetPayouts, buildVoteResults, buildRoundResult, sendGameEvent } from '@/lib/api-helpers'
 
 export async function POST(req: Request) {
   try {
@@ -43,34 +42,26 @@ export async function POST(req: Request) {
       where: { roundId: round.id },
     })
 
-    // Build vote results for round result
-    const voteResults: Record<string, string[]> = {}
-    for (const vote of votes) {
-      if (!voteResults[vote.suspectId]) {
-        voteResults[vote.suspectId] = []
-      }
-      voteResults[vote.suspectId].push(vote.voterId)
-    }
+    const voteResults = buildVoteResults(votes)
 
-    // Determine who gets points and update scores
-    let pointsAwarded: RoundResult['pointsAwarded'] = []
-    let winner: string | undefined
+    const betResults = lobby.bettingEnabled
+      ? await processBetPayouts(round.id, round.imposterId)
+      : []
+
+    let pointsAwarded: Array<{ playerId: string; playerName: string; points: number }> = []
+    const imposter = lobby.players.find(p => p.id === round.imposterId)!
 
     if (imposterGuessedCorrectly) {
-      // Imposter guessed correctly - imposter gets a point
       await prisma.player.update({
         where: { id: round.imposterId },
         data: { score: { increment: 1 } },
       })
-
-      const imposter = lobby.players.find(p => p.id === round.imposterId)!
       pointsAwarded.push({
         playerId: round.imposterId,
         playerName: imposter.name,
         points: 1,
       })
     } else {
-      // Imposter guessed wrong - everyone else gets a point
       await prisma.player.updateMany({
         where: {
           lobbyId,
@@ -78,7 +69,6 @@ export async function POST(req: Request) {
         },
         data: { score: { increment: 1 } },
       })
-
       pointsAwarded = lobby.players
         .filter(p => p.id !== round.imposterId)
         .map(p => ({
@@ -93,60 +83,20 @@ export async function POST(req: Request) {
       data: { status: 'COMPLETE' },
     })
 
-    const updatedPlayers = await prisma.player.findMany({
-      where: { lobbyId },
-    })
-
-    const scores: Record<string, number> = {}
-    updatedPlayers.forEach(p => scores[p.id] = p.score)
-
-    // Find the imposter player
-    const imposter = updatedPlayers.find(p => p.id === round.imposterId)!
-
-    // Check if anyone reached target score
-    const potentialWinner = updatedPlayers.find(p => p.score >= lobby.targetScore)
-    if (potentialWinner) {
-      winner = potentialWinner.id
-    }
-
-    // Build round result
-    const roundResult: RoundResult = {
-      roundNumber: round.roundNumber,
-      word: round.word,
-      imposterId: round.imposterId,
-      imposterName: imposter.name,
-      wasImposterCaught: true, // They were caught, that's why they're guessing
-      imposterGuess: guess.trim(),
-      imposterGuessedCorrectly,
-      votesReceived: voteResults,
+    const roundResult = await buildRoundResult(
+      round,
+      lobby,
+      true, // wasImposterCaught - they were caught, that's why they're guessing
+      voteResults,
       pointsAwarded,
-      newScores: scores,
-      winner,
-    }
+      betResults,
+      guess.trim(),
+      imposterGuessedCorrectly
+    )
 
-    // Send appropriate event based on game state
-    if (winner) {
-      const winnerPlayer = updatedPlayers.find(p => p.id === winner)!
-      const gameOverEvent: PusherEvent = {
-        type: 'GAME_OVER',
-        winner: winnerPlayer,
-        finalScores: scores,
-      }
-      await pusherServer.trigger(`lobby-${lobbyId}`, 'game-event', gameOverEvent)
-    } else {
-      const roundResultsEvent: PusherEvent = {
-        type: 'ROUND_RESULTS',
-        result: roundResult,
-      }
-      await pusherServer.trigger(`lobby-${lobbyId}`, 'game-event', roundResultsEvent)
-    }
+    await sendGameEvent(lobbyId, roundResult)
 
-    return NextResponse.json({
-      correct: imposterGuessedCorrectly,
-      actualWord: round.word,
-      scores,
-      winner,
-    })
+    return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Error submitting guess:', error)
     return NextResponse.json({ error: 'Failed to submit guess' }, { status: 500 })

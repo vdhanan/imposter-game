@@ -14,12 +14,14 @@ model Lobby {
   ownerId            String
   targetScore        Int      @default(7)
   emergencyVotesEnabled Boolean @default(false)
+  bettingEnabled     Boolean @default(false)
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
   players            Player[]
   rounds             Round[]
   emergencyVotes     EmergencyVote[]
+  bets               Bet[]
 }
 
 model Player {
@@ -35,6 +37,8 @@ model Player {
   votes     Vote[]
   votesReceived Vote[] @relation("VoteTarget")
   emergencyVotesInitiated EmergencyVote[]
+  betsPlaced Bet[] @relation("Bettor")
+  betsTargeted Bet[] @relation("BetTarget")
 
   @@unique([lobbyId, name])
 }
@@ -54,6 +58,7 @@ model Round {
   lobby       Lobby    @relation(fields: [lobbyId], references: [id], onDelete: Cascade)
   hints       Hint[]
   votes       Vote[]
+  bets        Bet[]
   emergencyVote EmergencyVote?
 
   @@unique([lobbyId, roundNumber])
@@ -101,10 +106,29 @@ model EmergencyVote {
   @@unique([roundId])
 }
 
+model Bet {
+  id         String   @id @default(cuid())
+  lobbyId    String
+  roundId    String
+  bettorId   String
+  targetId   String
+  amount     Int      // 1-3 points
+  payout     Int      @default(0) // Calculated after round
+  createdAt  DateTime @default(now())
+
+  lobby      Lobby    @relation(fields: [lobbyId], references: [id], onDelete: Cascade)
+  round      Round    @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  bettor     Player   @relation("Bettor", fields: [bettorId], references: [id], onDelete: Cascade)
+  target     Player   @relation("BetTarget", fields: [targetId], references: [id], onDelete: Cascade)
+
+  @@unique([roundId, bettorId])
+}
+
 enum RoundStatus {
   WAITING
   IN_PROGRESS
   HINTS_COMPLETE
+  BETTING
   VOTING
   EMERGENCY_VOTING
   GUESSING

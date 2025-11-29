@@ -22,6 +22,13 @@ export async function GET(
               },
               orderBy: { turnIndex: 'asc' },
             },
+            bets: {
+              include: {
+                bettor: true,
+                target: true,
+              },
+              orderBy: { createdAt: 'asc' },
+            },
           },
         },
       },
@@ -44,30 +51,29 @@ export async function GET(
       select: { roundNumber: true },
     })
 
-    // Check if any player has reached the target score
+    // Determine game state
     const hasWinner = lobby.players.some(p => p.score >= (lobby.targetScore || 7))
-
-    // Check if game is in progress (players have scores but no winner yet)
     const gameInProgress = lobby.players.some(p => p.score > 0) && !hasWinner
 
-    // Determine game state
-    let gameState: string
-    if (hasWinner) {
-      gameState = 'GAME_OVER'
-    } else if (currentRound) {
-      // Active round in progress
-      gameState = currentRound.status === 'VOTING' ? 'VOTING' :
-                  currentRound.status === 'EMERGENCY_VOTING' ? 'EMERGENCY_VOTING' :
-                  currentRound.status === 'GUESSING' ? 'GUESSING' :
-                  currentRound.status === 'HINTS_COMPLETE' ? 'VOTING' :
-                  'IN_PROGRESS'
-    } else if (gameInProgress) {
-      // Between rounds - waiting for next round to start
-      gameState = 'ROUND_RESULTS'
-    } else {
-      // No game started yet
-      gameState = 'LOBBY'
+    const getGameState = () => {
+      if (hasWinner) return 'GAME_OVER'
+      if (!currentRound) return gameInProgress ? 'ROUND_RESULTS' : 'LOBBY'
+
+      const statusMap = {
+        'BETTING': 'BETTING',
+        'VOTING': 'VOTING',
+        'EMERGENCY_VOTING': 'EMERGENCY_VOTING',
+        'GUESSING': 'GUESSING',
+        'HINTS_COMPLETE': lobby.bettingEnabled ? 'BETTING' : 'VOTING',
+        'IN_PROGRESS': 'IN_PROGRESS',
+        'WAITING': 'IN_PROGRESS',
+        'COMPLETE': 'ROUND_RESULTS'
+      }
+
+      return statusMap[currentRound.status] || 'IN_PROGRESS'
     }
+
+    const gameState = getGameState()
 
     return NextResponse.json({
       id: lobby.id,
@@ -75,6 +81,7 @@ export async function GET(
       ownerId: lobby.ownerId,
       targetScore: lobby.targetScore || 7,
       emergencyVotesEnabled: lobby.emergencyVotesEnabled,
+      bettingEnabled: lobby.bettingEnabled,
       players: lobby.players.map(p => ({
         id: p.id,
         name: p.name,
@@ -92,6 +99,14 @@ export async function GET(
           playerName: h.player.name,
           text: h.text,
           turnIndex: h.turnIndex,
+        })),
+        bets: currentRound.bets?.map(b => ({
+          id: b.id,
+          bettorId: b.bettorId,
+          bettorName: b.bettor.name,
+          targetId: b.targetId,
+          targetName: b.target.name,
+          amount: b.amount,
         })),
         status: currentRound.status,
       } : undefined,

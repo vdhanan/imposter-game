@@ -7,30 +7,40 @@ export async function POST(req: Request) {
   try {
     const { lobbyId, playerId, text } = await req.json()
 
+    // Validate input
     if (!text || text.trim().length === 0) {
       return NextResponse.json({ error: 'Hint text is required' }, { status: 400 })
     }
 
-    const round = await prisma.round.findFirst({
-      where: {
-        lobbyId,
-        status: 'IN_PROGRESS',
-      },
+    // Get current round and lobby in one query
+    const lobby = await prisma.lobby.findUnique({
+      where: { id: lobbyId },
       include: {
-        hints: true,
-      },
+        rounds: {
+          where: { status: 'IN_PROGRESS' },
+          include: { hints: true },
+          take: 1
+        }
+      }
     })
 
+    if (!lobby) {
+      return NextResponse.json({ error: 'Lobby not found' }, { status: 404 })
+    }
+
+    const round = lobby.rounds[0]
     if (!round) {
       return NextResponse.json({ error: 'No active round' }, { status: 404 })
     }
 
+    // Verify it's the player's turn
     const currentPlayerIndex = round.currentTurn % round.turnOrder.length
     const currentPlayerId = round.turnOrder[currentPlayerIndex]
     if (currentPlayerId !== playerId) {
       return NextResponse.json({ error: 'Not your turn' }, { status: 403 })
     }
 
+    // Get player info
     const player = await prisma.player.findUnique({
       where: { id: playerId },
     })
@@ -39,6 +49,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Player not found' }, { status: 404 })
     }
 
+    // Create the hint
     const hint = await prisma.hint.create({
       data: {
         roundId: round.id,
@@ -48,22 +59,12 @@ export async function POST(req: Request) {
       },
     })
 
+    // Calculate next turn
     const nextTurn = round.currentTurn + 1
-    const totalTurns = round.turnOrder.length * 2 // Go through order twice
+    const totalTurns = round.turnOrder.length * 2 // Two passes through all players
+    const isLastHint = nextTurn >= totalTurns
 
-    let newStatus = round.status
-    if (nextTurn >= totalTurns) {
-      newStatus = 'HINTS_COMPLETE'
-    }
-
-    await prisma.round.update({
-      where: { id: round.id },
-      data: {
-        currentTurn: nextTurn,
-        status: newStatus,
-      },
-    })
-
+    // Send hint submitted event
     const hintEvent: PusherEvent = {
       type: 'HINT_SUBMITTED',
       hint: {
@@ -74,21 +75,31 @@ export async function POST(req: Request) {
         turnIndex: hint.turnIndex,
       },
     }
-
     await pusherServer.trigger(`lobby-${lobbyId}`, 'game-event', hintEvent)
 
-    if (newStatus === 'HINTS_COMPLETE') {
-      setTimeout(async () => {
-        await prisma.round.update({
-          where: { id: round.id },
-          data: { status: 'VOTING' },
-        })
+    if (isLastHint) {
+      const nextStatus = lobby.bettingEnabled ? 'BETTING' : 'VOTING'
 
-        const votingEvent: PusherEvent = { type: 'VOTING_STARTED' }
-        await pusherServer.trigger(`lobby-${lobbyId}`, 'game-event', votingEvent)
-      }, 2000) // 2 second delay before voting
+      await prisma.round.update({
+        where: { id: round.id },
+        data: { status: nextStatus }
+      })
+
+      const eventType = nextStatus === 'BETTING' ? 'BETTING_STARTED' : 'VOTING_STARTED'
+      await pusherServer.trigger(`lobby-${lobbyId}`, 'game-event', { type: eventType })
     } else {
-      const nextPlayerId = round.turnOrder[nextTurn % round.turnOrder.length]
+      // Update turn for next player
+      await prisma.round.update({
+        where: { id: round.id },
+        data: {
+          currentTurn: nextTurn,
+        },
+      })
+
+      // Send turn changed event
+      const nextPlayerIndex = nextTurn % round.turnOrder.length
+      const nextPlayerId = round.turnOrder[nextPlayerIndex]
+
       const turnEvent: PusherEvent = {
         type: 'TURN_CHANGED',
         currentTurn: nextTurn,
@@ -97,11 +108,7 @@ export async function POST(req: Request) {
       await pusherServer.trigger(`lobby-${lobbyId}`, 'game-event', turnEvent)
     }
 
-    return NextResponse.json({
-      hintId: hint.id,
-      nextTurn,
-      isComplete: newStatus === 'HINTS_COMPLETE',
-    })
+    return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Error submitting hint:', error)
     return NextResponse.json({ error: 'Failed to submit hint' }, { status: 500 })

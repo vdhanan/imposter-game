@@ -1,10 +1,14 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import type { LobbyData, VoteResults, RoundResult, PlayerData } from '@/lib/types'
+import type { LobbyData, VoteResults, RoundResult, PlayerData, BetData } from '@/lib/types'
 import PlayerScoreboard from './GameRoom/PlayerScoreboard'
 import HintsSection from './GameRoom/HintsSection'
 import VotingSection from './GameRoom/VotingSection'
+import BettingSection from './GameRoom/BettingSection'
+import RoundResults from './GameRoom/RoundResults'
+import GameOver from './GameRoom/GameOver'
+import GuessingSection from './GameRoom/GuessingSection'
 
 interface GameRoomProps {
   lobby: LobbyData
@@ -36,8 +40,6 @@ export default function GameRoom({
   gameWinner,
 }: GameRoomProps) {
   const [hasVoted, setHasVoted] = useState(votedPlayers.includes(playerId))
-  const [guess, setGuess] = useState('')
-  const [guessing, setGuessing] = useState(false)
   const [startingNextRound, setStartingNextRound] = useState(false)
   const [restartingGame, setRestartingGame] = useState(false)
 
@@ -85,33 +87,6 @@ export default function GameRoom({
   }
 
 
-  const handleGuess = async () => {
-    if (!guess.trim() || guessing) return
-
-    setGuessing(true)
-    try {
-      const response = await fetch('/api/game/guess', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          lobbyId: lobby.id,
-          playerId,
-          guess: guess.trim(),
-        }),
-      })
-
-      if (response.ok) {
-        setGuess('')
-      } else {
-        const data = await response.json()
-        alert(data.error || 'Failed to submit guess')
-      }
-    } catch (error) {
-      alert('Failed to submit guess')
-    } finally {
-      setGuessing(false)
-    }
-  }
 
   const handleStartNextRound = async () => {
     if (!playerId || !lobby || lobby.ownerId !== playerId) return
@@ -183,7 +158,8 @@ export default function GameRoom({
                   : `Round ${lobby.currentRound?.roundNumber || 1}`}
               </h1>
               <p className="text-gray-600">
-                {lobby.state === 'VOTING' ? 'Vote for the imposter!' :
+                {lobby.state === 'BETTING' ? '💰 Place your bets!' :
+                 lobby.state === 'VOTING' ? 'Vote for the imposter!' :
                  lobby.state === 'EMERGENCY_VOTING' ? '🚨 Emergency Vote! Vote for the imposter!' :
                  lobby.state === 'GUESSING' ? 'Imposter is guessing...' :
                  lobby.state === 'ROUND_RESULTS' ? 'Round Complete!' :
@@ -244,6 +220,19 @@ export default function GameRoom({
               />
             )}
 
+            {lobby.state === 'BETTING' && lobby.bettingEnabled && (
+              <BettingSection
+                lobbyId={lobby.id}
+                playerId={playerId}
+                players={lobby.players}
+                currentPlayerScore={lobby.players.find(p => p.id === playerId)?.score || 0}
+                bets={lobby.currentRound?.bets || []}
+                onBetPlaced={(bet: BetData) => {
+                  // Update local state if needed
+                }}
+              />
+            )}
+
             {(lobby.state === 'VOTING' || lobby.state === 'EMERGENCY_VOTING' || (votingResults && lobby.state !== 'ROUND_RESULTS')) && (
               <VotingSection
                 players={lobby.players}
@@ -272,120 +261,23 @@ export default function GameRoom({
 
             {/* Guessing */}
             {guessPrompt && lobby.state === 'GUESSING' && (
-              <>
-                <h2 className="text-xl font-bold text-gray-800 mb-4">Guess the Word!</h2>
-                <p className="text-gray-600 mb-4">
-                  You&apos;ve been caught! Guess the word correctly to still win the round:
-                </p>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={guess}
-                    onChange={(e) => setGuess(e.target.value)}
-                    placeholder="Enter your guess..."
-                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
-                  />
-                  <button
-                    onClick={handleGuess}
-                    disabled={!guess.trim() || guessing}
-                    className="px-6 py-2 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 disabled:bg-gray-400"
-                  >
-                    {guessing ? 'Guessing...' : 'Submit Guess'}
-                  </button>
-                </div>
-              </>
+              <GuessingSection
+                lobbyId={lobby.id}
+                playerId={playerId}
+                onGuessSubmit={() => {}}
+              />
             )}
 
             {/* Round Results */}
             {roundResult && lobby.state === 'ROUND_RESULTS' && (
-              <>
-                <h2 className="text-xl font-bold text-gray-800 mb-4">Round {roundResult.roundNumber} Results</h2>
-
-                {/* The Word */}
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-                  <p className="text-sm text-blue-600 font-medium">The word was:</p>
-                  <p className="text-2xl font-bold text-blue-800">{roundResult.word}</p>
-                </div>
-
-                {/* Imposter Info */}
-                <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-4">
-                  <p className="text-sm text-purple-600 font-medium">The imposter was:</p>
-                  <p className="text-xl font-bold text-purple-800">{roundResult.imposterName}</p>
-
-                  {roundResult.wasImposterCaught && roundResult.imposterGuess && (
-                    <div className="mt-2">
-                      <p className="text-sm text-purple-600">Imposter&apos;s guess:
-                        <span className="font-bold ml-1">{roundResult.imposterGuess}</span>
-                      </p>
-                      <p className={`text-sm font-medium ${
-                        roundResult.imposterGuessedCorrectly ? 'text-green-600' : 'text-red-600'
-                      }`}>
-                        {roundResult.imposterGuessedCorrectly ? '✓ Correct!' : '✗ Incorrect'}
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Voting Results */}
-                <div className="mb-4">
-                  <p className="text-sm font-semibold text-gray-700 mb-2">Voting Results:</p>
-                  <div className="space-y-2">
-                    {Object.entries(roundResult.votesReceived).map(([suspectId, voterIds]) => {
-                      const suspect = lobby.players.find(p => p.id === suspectId)
-                      const voters = voterIds.map(id => lobby.players.find(p => p.id === id)?.name).filter(Boolean)
-                      return (
-                        <div key={suspectId} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                          <span className={`font-medium ${suspectId === roundResult.imposterId ? 'text-red-600' : ''}`}>
-                            {suspect?.name}
-                            {suspectId === roundResult.imposterId && ' (Imposter)'}
-                          </span>
-                          <span className="text-sm text-gray-600">
-                            {voterIds.length} vote{voterIds.length !== 1 ? 's' : ''}
-                            {voters.length > 0 && ` (${voters.join(', ')})`}
-                          </span>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-
-                {/* Points Awarded */}
-                <div className={`p-4 rounded-lg mb-4 ${
-                  roundResult.pointsAwarded.some(p => p.playerId === playerId)
-                    ? 'bg-green-100 border border-green-300'
-                    : 'bg-gray-100 border border-gray-300'
-                }`}>
-                  <p className="font-semibold text-gray-800 mb-2">Points Awarded:</p>
-                  <div className="space-y-1">
-                    {roundResult.pointsAwarded.map(award => (
-                      <div key={award.playerId} className="text-sm">
-                        <span className="font-medium">
-                          {award.playerName}
-                          {award.playerId === playerId && ' (You)'}
-                        </span>
-                        : +{award.points} point{award.points !== 1 ? 's' : ''}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Next Round Button */}
-                {isOwner && !roundResult.winner && (
-                  <button
-                    onClick={handleStartNextRound}
-                    disabled={startingNextRound}
-                    className="w-full py-3 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 disabled:bg-gray-400"
-                  >
-                    {startingNextRound ? 'Starting...' : 'Start Next Round'}
-                  </button>
-                )}
-
-                {!isOwner && !roundResult.winner && (
-                  <div className="text-center text-gray-600">
-                    Waiting for host to start the next round...
-                  </div>
-                )}
-              </>
+              <RoundResults
+                roundResult={roundResult}
+                players={lobby.players}
+                playerId={playerId}
+                isOwner={isOwner}
+                onStartNextRound={handleStartNextRound}
+                startingNextRound={startingNextRound}
+              />
             )}
 
             {/* Between rounds - no round result data (e.g., after refresh) */}
@@ -423,69 +315,14 @@ export default function GameRoom({
 
             {/* Game Over */}
             {lobby.state === 'GAME_OVER' && (
-              <>
-                <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center">
-                  🎉 Game Complete! 🎉
-                </h2>
-
-                <div className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-6 mb-6 text-center">
-                  <p className="text-lg text-yellow-800 mb-2">Winner:</p>
-                  <p className="text-3xl font-bold text-yellow-900">
-                    👑 {gameWinner?.name || lobby.players.sort((a, b) => b.score - a.score)[0]?.name} 👑
-                  </p>
-                  <p className="text-xl text-yellow-800 mt-2">
-                    Final Score: {gameWinner?.score || lobby.players.sort((a, b) => b.score - a.score)[0]?.score} points
-                  </p>
-                </div>
-
-                {/* Final Scoreboard */}
-                <div className="mb-6">
-                  <h3 className="text-lg font-semibold text-gray-800 mb-3">Final Scoreboard</h3>
-                  <div className="space-y-2">
-                    {lobby.players
-                      .sort((a, b) => b.score - a.score)
-                      .map((player, index) => (
-                        <div
-                          key={player.id}
-                          className={`p-3 rounded-lg flex justify-between items-center ${
-                            index === 0 ? 'bg-yellow-100 border-2 border-yellow-300' :
-                            index === 1 ? 'bg-gray-100 border border-gray-300' :
-                            index === 2 ? 'bg-orange-50 border border-orange-200' :
-                            'bg-gray-50 border border-gray-200'
-                          }`}
-                        >
-                          <span className="font-medium">
-                            {index === 0 && '🥇 '}
-                            {index === 1 && '🥈 '}
-                            {index === 2 && '🥉 '}
-                            {player.name}
-                            {player.id === playerId && ' (You)'}
-                          </span>
-                          <span className="font-bold text-lg">
-                            {player.score} points
-                          </span>
-                        </div>
-                      ))}
-                  </div>
-                </div>
-
-                {/* Restart Game Button */}
-                {isOwner && (
-                  <button
-                    onClick={handleRestartGame}
-                    disabled={restartingGame}
-                    className="w-full py-3 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 disabled:bg-gray-400"
-                  >
-                    {restartingGame ? 'Restarting...' : 'Play Again'}
-                  </button>
-                )}
-
-                {!isOwner && (
-                  <div className="text-center text-gray-600">
-                    Waiting for host to restart the game...
-                  </div>
-                )}
-              </>
+              <GameOver
+                gameWinner={gameWinner}
+                players={lobby.players}
+                playerId={playerId}
+                isOwner={isOwner}
+                onRestartGame={handleRestartGame}
+                restartingGame={restartingGame}
+              />
             )}
           </div>
         </div>

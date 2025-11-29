@@ -6,41 +6,34 @@ import { v4 as uuidv4 } from 'uuid'
 
 export async function POST(req: Request) {
   try {
-    const { playerName, targetScore, emergencyVotesEnabled } = await req.json()
+    const { playerName, targetScore, emergencyVotesEnabled, bettingEnabled } = await req.json()
 
-    if (!playerName?.trim()) {
-      return apiError('Player name is required')
-    }
+    if (!playerName?.trim()) return apiError('Player name is required')
 
-    // Validate target score
     const validatedTargetScore = Math.min(20, Math.max(2, targetScore || GAME_CONFIG.DEFAULT_TARGET_SCORE))
+    const playerId = uuidv4()
 
+    // Generate unique code
     const generateUniqueCode = async (): Promise<string> => {
       const code = generateLobbyCode()
       const exists = await prisma.lobby.findUnique({ where: { code } })
       return exists ? generateUniqueCode() : code
     }
 
-    const code = await generateUniqueCode()
-
-    const playerId = uuidv4()
-
-    // Create lobby with owner as first player
+    // Create lobby and player
     const lobby = await prisma.lobby.create({
       data: {
-        code,
+        code: await generateUniqueCode(),
         ownerId: playerId,
         targetScore: validatedTargetScore,
         emergencyVotesEnabled: emergencyVotesEnabled || false,
+        bettingEnabled: bettingEnabled || false,
         players: {
           create: {
             id: playerId,
             name: playerName.trim(),
           },
         },
-      },
-      include: {
-        players: true,
       },
     })
 

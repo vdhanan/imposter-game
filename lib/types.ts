@@ -1,4 +1,4 @@
-export type GameState = 'LOBBY' | 'IN_PROGRESS' | 'HINTS' | 'VOTING' | 'EMERGENCY_VOTING' | 'GUESSING' | 'ROUND_RESULTS' | 'GAME_OVER'
+export type GameState = 'LOBBY' | 'IN_PROGRESS' | 'HINTS' | 'BETTING' | 'VOTING' | 'EMERGENCY_VOTING' | 'GUESSING' | 'ROUND_RESULTS' | 'GAME_OVER'
 
 export interface PlayerData {
   id: string
@@ -17,6 +17,7 @@ export interface LobbyData {
   state: GameState
   targetScore: number // First to this score wins (default 7)
   emergencyVotesEnabled: boolean
+  bettingEnabled: boolean
   emergencyVoteInitiated?: string // ID of the player who initiated the emergency vote
 }
 
@@ -29,7 +30,8 @@ export interface RoundData {
   turnOrder: string[]
   currentTurn: number
   hints: HintData[]
-  status: 'WAITING' | 'IN_PROGRESS' | 'HINTS_COMPLETE' | 'VOTING' | 'EMERGENCY_VOTING' | 'GUESSING' | 'COMPLETE'
+  bets?: BetData[]
+  status: 'WAITING' | 'IN_PROGRESS' | 'HINTS_COMPLETE' | 'BETTING' | 'VOTING' | 'EMERGENCY_VOTING' | 'GUESSING' | 'COMPLETE'
 }
 
 export interface HintData {
@@ -38,6 +40,15 @@ export interface HintData {
   playerName: string
   text: string
   turnIndex: number
+}
+
+export interface BetData {
+  id: string
+  bettorId: string
+  bettorName: string
+  targetId: string
+  targetName: string
+  amount: number
 }
 
 export interface VoteData {
@@ -54,6 +65,15 @@ export interface RoundResult {
   imposterGuess?: string
   imposterGuessedCorrectly?: boolean
   votesReceived: Record<string, string[]> // playerId -> voterIds
+  betResults?: { // Results of betting
+    bettorId: string
+    bettorName: string
+    targetId: string
+    targetName: string
+    amount: number
+    won: boolean
+    payout: number
+  }[]
   pointsAwarded: {
     playerId: string
     playerName: string
@@ -69,6 +89,8 @@ export type PusherEvent =
   | { type: 'GAME_STARTED'; round: RoundData; targetScore: number }
   | { type: 'HINT_SUBMITTED'; hint: HintData }
   | { type: 'TURN_CHANGED'; currentTurn: number; playerId: string }
+  | { type: 'BETTING_STARTED' }
+  | { type: 'BET_PLACED'; bet: BetData }
   | { type: 'VOTING_STARTED' }
   | { type: 'VOTE_CAST'; voterId: string }
   | { type: 'VOTING_COMPLETE'; results: VoteResults }
