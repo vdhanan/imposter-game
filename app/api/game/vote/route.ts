@@ -21,7 +21,6 @@ export async function POST(req: Request) {
       return apiError('Already voted')
     }
 
-    // Create vote
     await prisma.vote.create({
       data: {
         roundId: round.id,

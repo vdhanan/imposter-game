@@ -11,6 +11,7 @@ export function useGameState({ lobbyId, playerId }: GameStateProps) {
   const [lobby, setLobby] = useState<LobbyData | null>(null)
   const [role, setRole] = useState<'CIVILIAN' | 'IMPOSTER' | null>(null)
   const [word, setWord] = useState<string | null>(null)
+  const [category, setCategory] = useState<string | null>(null)
   const [isMyTurn, setIsMyTurn] = useState(false)
   const [votingResults, setVotingResults] = useState<VoteResults | null>(null)
   const [guessPrompt, setGuessPrompt] = useState(false)
@@ -158,6 +159,7 @@ export function useGameState({ lobbyId, playerId }: GameStateProps) {
           } : null)
           setRole(null)
           setWord(null)
+          setCategory(null)
           setRoundResult(null)
           setGameWinner(null)
           setVotingResults(null)
@@ -174,6 +176,7 @@ export function useGameState({ lobbyId, playerId }: GameStateProps) {
         if (event.type === 'ROLE_ASSIGNED') {
           setRole(event.role)
           setWord(event.word)
+          setCategory(event.category)
         } else if (event.type === 'GUESS_WORD_PROMPT') {
           setGuessPrompt(true)
         }
@@ -190,6 +193,7 @@ export function useGameState({ lobbyId, playerId }: GameStateProps) {
     lobby,
     role,
     word,
+    category,
     isMyTurn,
     votingResults,
     guessPrompt,

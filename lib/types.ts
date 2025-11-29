@@ -22,6 +22,7 @@ export interface RoundData {
   id: string
   roundNumber: number
   word?: string // Only sent to non-imposters
+  category: string // Category is sent to all players, including imposters
   imposterId: string
   turnOrder: string[]
   currentTurn: number

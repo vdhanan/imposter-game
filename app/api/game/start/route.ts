@@ -20,25 +20,23 @@ export async function POST(req: Request) {
       return apiError('Game already in progress')
     }
 
-    // Get next round number
     const lastRound = await prisma.round.findFirst({
       where: { lobbyId },
       orderBy: { roundNumber: 'desc' },
     })
     const roundNumber = lastRound ? lastRound.roundNumber + 1 : 1
 
-    // Select random word and imposter
-    const word = getRandomWord()
+    const { word, category } = getRandomWord()
     const playerIds = lobby.players.map(p => p.id)
     const imposterId = playerIds[Math.floor(Math.random() * playerIds.length)]
     const turnOrder = shuffleArray(playerIds)
 
-    // Create round
     const round = await prisma.round.create({
       data: {
         lobbyId,
         roundNumber,
         word,
+        category,
         imposterId,
         turnOrder,
         status: 'IN_PROGRESS',
@@ -55,6 +53,7 @@ export async function POST(req: Request) {
           type: 'ROLE_ASSIGNED',
           role: isImposter ? 'IMPOSTER' : 'CIVILIAN',
           word: isImposter ? null : word,
+          category, // Category is shown to all players including imposter
         }
       )
     }
@@ -70,6 +69,7 @@ export async function POST(req: Request) {
         currentTurn: 0,
         hints: [],
         status: round.status,
+        category, // Include category in the public round data
       },
       targetScore: lobby.targetScore || 7,
     }

@@ -11,7 +11,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Hint text is required' }, { status: 400 })
     }
 
-    // Get current round
     const round = await prisma.round.findFirst({
       where: {
         lobbyId,
@@ -26,14 +25,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'No active round' }, { status: 404 })
     }
 
-    // Verify it's player's turn
     const currentPlayerIndex = round.currentTurn % round.turnOrder.length
     const currentPlayerId = round.turnOrder[currentPlayerIndex]
     if (currentPlayerId !== playerId) {
       return NextResponse.json({ error: 'Not your turn' }, { status: 403 })
     }
 
-    // Get player info
     const player = await prisma.player.findUnique({
       where: { id: playerId },
     })
@@ -42,7 +39,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Player not found' }, { status: 404 })
     }
 
-    // Create hint
     const hint = await prisma.hint.create({
       data: {
         roundId: round.id,
@@ -52,7 +48,6 @@ export async function POST(req: Request) {
       },
     })
 
-    // Calculate next turn
     const nextTurn = round.currentTurn + 1
     const totalTurns = round.turnOrder.length * 2 // Go through order twice
 
@@ -61,7 +56,6 @@ export async function POST(req: Request) {
       newStatus = 'HINTS_COMPLETE'
     }
 
-    // Update round
     await prisma.round.update({
       where: { id: round.id },
       data: {
@@ -70,7 +64,6 @@ export async function POST(req: Request) {
       },
     })
 
-    // Broadcast hint to all players
     const hintEvent: PusherEvent = {
       type: 'HINT_SUBMITTED',
       hint: {
@@ -84,7 +77,6 @@ export async function POST(req: Request) {
 
     await pusherServer.trigger(`lobby-${lobbyId}`, 'game-event', hintEvent)
 
-    // If hints complete, start voting
     if (newStatus === 'HINTS_COMPLETE') {
       setTimeout(async () => {
         await prisma.round.update({
@@ -96,7 +88,6 @@ export async function POST(req: Request) {
         await pusherServer.trigger(`lobby-${lobbyId}`, 'game-event', votingEvent)
       }, 2000) // 2 second delay before voting
     } else {
-      // Notify next player
       const nextPlayerId = round.turnOrder[nextTurn % round.turnOrder.length]
       const turnEvent: PusherEvent = {
         type: 'TURN_CHANGED',

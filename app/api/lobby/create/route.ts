@@ -6,11 +6,14 @@ import { v4 as uuidv4 } from 'uuid'
 
 export async function POST(req: Request) {
   try {
-    const { playerName } = await req.json()
+    const { playerName, targetScore } = await req.json()
 
     if (!playerName?.trim()) {
       return apiError('Player name is required')
     }
+
+    // Validate target score
+    const validatedTargetScore = Math.min(20, Math.max(2, targetScore || GAME_CONFIG.DEFAULT_TARGET_SCORE))
 
     const generateUniqueCode = async (): Promise<string> => {
       const code = generateLobbyCode()
@@ -27,7 +30,7 @@ export async function POST(req: Request) {
       data: {
         code,
         ownerId: playerId,
-        targetScore: GAME_CONFIG.DEFAULT_TARGET_SCORE,
+        targetScore: validatedTargetScore,
         players: {
           create: {
             id: playerId,

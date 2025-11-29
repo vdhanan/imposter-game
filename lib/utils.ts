@@ -10,8 +10,22 @@ export const generateLobbyCode = () => {
 }
 
 export const getRandomWord = () => {
-  const words = Object.values(wordsList).flat()
-  return words[Math.floor(Math.random() * words.length)]
+  const categoryMap: Record<string, string> = {
+    'objects': 'Object',
+    'foods': 'Food & Drink',
+    'places': 'Place',
+    'animals': 'Animal',
+    'common': 'Common Thing'
+  }
+
+  const categories = Object.keys(wordsList) as Array<keyof typeof wordsList>
+  const category = categories[Math.floor(Math.random() * categories.length)]
+  const words = wordsList[category]
+
+  return {
+    word: words[Math.floor(Math.random() * words.length)],
+    category: categoryMap[category] || category
+  }
 }
 
 export const shuffleArray = <T>(array: T[]): T[] =>

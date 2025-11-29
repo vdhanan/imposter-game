@@ -28,7 +28,7 @@ export default function GameLobby({ lobbyId }: GameLobbyProps) {
     setPlayerName(name)
   }, [router])
 
-  const { lobby, role, word, isMyTurn, votingResults, guessPrompt, votedPlayers, roundResult, gameWinner } = useGameState({
+  const { lobby, role, word, category, isMyTurn, votingResults, guessPrompt, votedPlayers, roundResult, gameWinner } = useGameState({
     lobbyId,
     playerId: playerId || '',
   })
@@ -71,7 +71,6 @@ export default function GameLobby({ lobbyId }: GameLobbyProps) {
     )
   }
 
-  // If game has started, show game room
   if (lobby.state !== 'LOBBY') {
     return (
       <GameRoom
@@ -80,6 +79,7 @@ export default function GameLobby({ lobbyId }: GameLobbyProps) {
         playerName={playerName}
         role={role}
         word={word}
+        category={category}
         isMyTurn={isMyTurn}
         votingResults={votingResults}
         guessPrompt={guessPrompt}
@@ -101,6 +101,9 @@ export default function GameLobby({ lobbyId }: GameLobbyProps) {
             <div>
               <h1 className="text-3xl font-bold text-gray-800 mb-2">Game Lobby</h1>
               <p className="text-gray-600">Waiting for players to join...</p>
+              <p className="text-sm text-gray-500 mt-1">
+                Playing to <span className="font-semibold">{lobby.targetScore}</span> points
+              </p>
             </div>
             <div className="text-right">
               <p className="text-sm text-gray-600 mb-1">Share Lobby</p>

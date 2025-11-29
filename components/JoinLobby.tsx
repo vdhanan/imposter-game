@@ -34,11 +34,8 @@ export default function JoinLobby() {
 
       const data = await response.json()
 
-      // Store player info in localStorage
       localStorage.setItem('playerId', data.playerId)
       localStorage.setItem('playerName', data.playerName)
-
-      // Redirect to lobby
       router.push(`/lobby/${data.lobbyId}`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong')

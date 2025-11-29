@@ -21,13 +21,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Only the host can restart the game' }, { status: 403 })
     }
 
-    // Reset all player scores
     await prisma.player.updateMany({
       where: { lobbyId },
       data: { score: 0 },
     })
 
-    // Delete all rounds for this lobby
     await prisma.round.deleteMany({
       where: { lobbyId },
     })

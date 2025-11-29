@@ -12,7 +12,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Lobby code and player name are required' }, { status: 400 })
     }
 
-    // Find lobby
     const lobby = await prisma.lobby.findUnique({
       where: { code: lobbyCode.toUpperCase() },
       include: {
@@ -46,7 +45,6 @@ export async function POST(req: Request) {
 
     const playerId = uuidv4()
 
-    // Add player to lobby
     const player = await prisma.player.create({
       data: {
         id: playerId,
@@ -55,7 +53,6 @@ export async function POST(req: Request) {
       },
     })
 
-    // Notify other players via Pusher
     const event: PusherEvent = {
       type: 'PLAYER_JOINED',
       player: {

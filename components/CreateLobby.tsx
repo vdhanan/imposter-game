@@ -7,14 +7,15 @@ import { useAsyncAction } from '@/lib/hooks'
 
 export default function CreateLobby() {
   const [name, setName] = useState('')
+  const [targetScore, setTargetScore] = useState<number>(GAME_CONFIG.DEFAULT_TARGET_SCORE)
   const router = useRouter()
   const { execute, loading, error } = useAsyncAction()
 
-  const createLobby = async (playerName: string) => {
+  const createLobby = async (playerName: string, pointsToWin: number) => {
     const response = await fetch('/api/lobby/create', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ playerName }),
+      body: JSON.stringify({ playerName, targetScore: pointsToWin }),
     })
 
     if (!response.ok) {
@@ -29,7 +30,7 @@ export default function CreateLobby() {
     e.preventDefault()
     if (!name.trim() || loading) return
 
-    const data = await execute(createLobby, name)
+    const data = await execute(() => createLobby(name, targetScore))
     if (data) {
       localStorage.setItem('playerId', data.playerId)
       localStorage.setItem('playerName', data.playerName)
@@ -58,6 +59,24 @@ export default function CreateLobby() {
               maxLength={GAME_CONFIG.MAX_PLAYER_NAME_LENGTH}
               required
             />
+          </div>
+
+          <div>
+            <label htmlFor="targetScore" className="block text-sm font-medium text-gray-700 mb-2">
+              Points to Win
+            </label>
+            <input
+              type="number"
+              id="targetScore"
+              min="2"
+              max="20"
+              value={targetScore}
+              onChange={(e) => setTargetScore(Math.min(20, Math.max(2, Number(e.target.value))))}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              2-20 points
+            </p>
           </div>
 
           {error && (

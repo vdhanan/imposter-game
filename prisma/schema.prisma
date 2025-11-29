@@ -41,6 +41,7 @@ model Round {
   lobbyId     String
   roundNumber Int
   word        String
+  category    String   @default("Thing")
   imposterId  String
   turnOrder   String[] // Array of player IDs
   currentTurn Int      @default(0)

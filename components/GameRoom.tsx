@@ -12,6 +12,7 @@ interface GameRoomProps {
   playerName: string
   role: 'CIVILIAN' | 'IMPOSTER' | null
   word: string | null
+  category: string | null
   isMyTurn: boolean
   votingResults: VoteResults | null
   guessPrompt: boolean
@@ -26,6 +27,7 @@ export default function GameRoom({
   playerName,
   role,
   word,
+  category,
   isMyTurn,
   votingResults,
   guessPrompt,
@@ -39,7 +41,6 @@ export default function GameRoom({
   const [startingNextRound, setStartingNextRound] = useState(false)
   const [restartingGame, setRestartingGame] = useState(false)
 
-  // Update hasVoted when votedPlayers changes
   useEffect(() => {
     if (votedPlayers.includes(playerId)) {
       setHasVoted(true)
@@ -181,6 +182,12 @@ export default function GameRoom({
                 }`}>
                   <p className="text-sm font-medium">You are</p>
                   <p className="text-lg font-bold">{role}</p>
+                </div>
+              )}
+              {category && lobby.state !== 'GAME_OVER' && lobby.state !== 'ROUND_RESULTS' && (
+                <div className="mt-2 bg-yellow-100 text-yellow-700 px-4 py-2 rounded-lg">
+                  <p className="text-sm">Category</p>
+                  <p className="text-lg font-bold">{category}</p>
                 </div>
               )}
               {word && lobby.state !== 'GAME_OVER' && lobby.state !== 'ROUND_RESULTS' && (

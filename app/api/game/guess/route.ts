@@ -11,7 +11,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Guess is required' }, { status: 400 })
     }
 
-    // Get current round
     const round = await prisma.round.findFirst({
       where: {
         lobbyId,
@@ -28,7 +27,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Only imposter can guess' }, { status: 403 })
     }
 
-    // Check if guess is correct
     const imposterGuessedCorrectly = guess.trim().toLowerCase() === round.word.toLowerCase()
 
     // Get lobby and all votes for this round
@@ -90,13 +88,11 @@ export async function POST(req: Request) {
         }))
     }
 
-    // Mark round as complete
     await prisma.round.update({
       where: { id: round.id },
       data: { status: 'COMPLETE' },
     })
 
-    // Get updated scores
     const updatedPlayers = await prisma.player.findMany({
       where: { lobbyId },
     })
