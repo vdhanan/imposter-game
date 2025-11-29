@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/db'
 import { generateLobbyCode } from '@/lib/utils'
 import { apiError, apiSuccess } from '@/lib/api-helpers'
+import { GAME_CONFIG } from '@/lib/constants'
 import { v4 as uuidv4 } from 'uuid'
 
 export async function POST(req: Request) {
@@ -26,6 +27,7 @@ export async function POST(req: Request) {
       data: {
         code,
         ownerId: playerId,
+        targetScore: GAME_CONFIG.DEFAULT_TARGET_SCORE,
         players: {
           create: {
             id: playerId,
