@@ -7,13 +7,19 @@ interface HintsSectionProps {
   isMyTurn: boolean
   currentPlayer?: PlayerData | null
   onSubmitHint: (hint: string) => Promise<void>
+  emergencyVotesEnabled?: boolean
+  onEmergencyVote?: () => void
+  canInitiateEmergencyVote?: boolean
 }
 
 export default function HintsSection({
   hints,
   isMyTurn,
   currentPlayer,
-  onSubmitHint
+  onSubmitHint,
+  emergencyVotesEnabled,
+  onEmergencyVote,
+  canInitiateEmergencyVote
 }: HintsSectionProps) {
   const [hint, setHint] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -28,7 +34,18 @@ export default function HintsSection({
 
   return (
     <>
-      <h2 className="text-xl font-bold text-gray-800 mb-4">Word Hints</h2>
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-xl font-bold text-gray-800">Word Hints</h2>
+        {emergencyVotesEnabled && canInitiateEmergencyVote && onEmergencyVote && (
+          <button
+            onClick={onEmergencyVote}
+            className="px-4 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition duration-200"
+            title="Skip hints and vote immediately. Risky: You lose a point if wrong!"
+          >
+            🚨 Emergency Vote
+          </button>
+        )}
+      </div>
       <div className="space-y-2 mb-4 max-h-64 overflow-y-auto">
         {hints.length > 0 ? (
           hints.map((hint) => (

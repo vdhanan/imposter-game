@@ -104,7 +104,17 @@ export function useGameState({ lobbyId, playerId }: GameStateProps) {
         case 'VOTING_STARTED':
           setLobby(prev => prev ? { ...prev, state: 'VOTING' } : null)
           setIsMyTurn(false)
-          setVotedPlayers([]) // Reset voted players for new voting round
+          setVotedPlayers([])
+          break
+
+        case 'EMERGENCY_VOTE_INITIATED':
+          // Reserved for future notification system
+          break
+
+        case 'EMERGENCY_VOTING_STARTED':
+          setLobby(prev => prev ? { ...prev, state: 'EMERGENCY_VOTING' } : null)
+          setIsMyTurn(false)
+          setVotedPlayers([])
           break
 
         case 'VOTE_CAST':

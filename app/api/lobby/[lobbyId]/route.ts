@@ -57,6 +57,7 @@ export async function GET(
     } else if (currentRound) {
       // Active round in progress
       gameState = currentRound.status === 'VOTING' ? 'VOTING' :
+                  currentRound.status === 'EMERGENCY_VOTING' ? 'EMERGENCY_VOTING' :
                   currentRound.status === 'GUESSING' ? 'GUESSING' :
                   currentRound.status === 'HINTS_COMPLETE' ? 'VOTING' :
                   'IN_PROGRESS'
@@ -73,6 +74,7 @@ export async function GET(
       code: lobby.code,
       ownerId: lobby.ownerId,
       targetScore: lobby.targetScore || 7,
+      emergencyVotesEnabled: lobby.emergencyVotesEnabled,
       players: lobby.players.map(p => ({
         id: p.id,
         name: p.name,

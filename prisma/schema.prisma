@@ -9,15 +9,17 @@ datasource db {
 }
 
 model Lobby {
-  id          String   @id @default(cuid())
-  code        String   @unique
-  ownerId     String
-  targetScore Int      @default(7)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                 String   @id @default(cuid())
+  code               String   @unique
+  ownerId            String
+  targetScore        Int      @default(7)
+  emergencyVotesEnabled Boolean @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
-  players     Player[]
-  rounds      Round[]
+  players            Player[]
+  rounds             Round[]
+  emergencyVotes     EmergencyVote[]
 }
 
 model Player {
@@ -32,6 +34,7 @@ model Player {
   hints     Hint[]
   votes     Vote[]
   votesReceived Vote[] @relation("VoteTarget")
+  emergencyVotesInitiated EmergencyVote[]
 
   @@unique([lobbyId, name])
 }
@@ -51,6 +54,7 @@ model Round {
   lobby       Lobby    @relation(fields: [lobbyId], references: [id], onDelete: Cascade)
   hints       Hint[]
   votes       Vote[]
+  emergencyVote EmergencyVote?
 
   @@unique([lobbyId, roundNumber])
 }
@@ -83,11 +87,26 @@ model Vote {
   @@unique([roundId, voterId])
 }
 
+model EmergencyVote {
+  id          String   @id @default(cuid())
+  lobbyId     String
+  roundId     String
+  initiatorId String
+  createdAt   DateTime @default(now())
+
+  lobby       Lobby    @relation(fields: [lobbyId], references: [id], onDelete: Cascade)
+  round       Round    @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  initiator   Player   @relation(fields: [initiatorId], references: [id], onDelete: Cascade)
+
+  @@unique([roundId])
+}
+
 enum RoundStatus {
   WAITING
   IN_PROGRESS
   HINTS_COMPLETE
   VOTING
+  EMERGENCY_VOTING
   GUESSING
   COMPLETE
 }

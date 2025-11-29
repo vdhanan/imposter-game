@@ -66,6 +66,24 @@ export default function GameRoom({
     }
   }
 
+  const handleEmergencyVote = async () => {
+    if (window.confirm('Are you sure? You will lose 1 point if the imposter is not caught!')) {
+      const response = await fetch('/api/game/emergency-vote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          lobbyId: lobby.id,
+          initiatorId: playerId,
+        }),
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        alert(data.error || 'Failed to initiate emergency vote')
+      }
+    }
+  }
+
 
   const handleGuess = async () => {
     if (!guess.trim() || guessing) return
@@ -166,6 +184,7 @@ export default function GameRoom({
               </h1>
               <p className="text-gray-600">
                 {lobby.state === 'VOTING' ? 'Vote for the imposter!' :
+                 lobby.state === 'EMERGENCY_VOTING' ? '🚨 Emergency Vote! Vote for the imposter!' :
                  lobby.state === 'GUESSING' ? 'Imposter is guessing...' :
                  lobby.state === 'ROUND_RESULTS' ? 'Round Complete!' :
                  lobby.state === 'GAME_OVER' ? `${gameWinner?.name || lobby.players.sort((a, b) => b.score - a.score)[0]?.name} wins!` :
@@ -213,18 +232,19 @@ export default function GameRoom({
 
           {/* Game Area */}
           <div className="lg:col-span-2 bg-white rounded-lg shadow-xl p-6">
-            {/* Hints Display */}
             {lobby.state === 'IN_PROGRESS' && (
               <HintsSection
                 hints={lobby.currentRound?.hints || []}
                 isMyTurn={isMyTurn}
                 currentPlayer={currentPlayer}
                 onSubmitHint={handleSubmitHint}
+                emergencyVotesEnabled={lobby.emergencyVotesEnabled}
+                onEmergencyVote={handleEmergencyVote}
+                canInitiateEmergencyVote={role === 'CIVILIAN'}
               />
             )}
 
-            {/* Voting */}
-            {(lobby.state === 'VOTING' || (votingResults && lobby.state !== 'ROUND_RESULTS')) && (
+            {(lobby.state === 'VOTING' || lobby.state === 'EMERGENCY_VOTING' || (votingResults && lobby.state !== 'ROUND_RESULTS')) && (
               <VotingSection
                 players={lobby.players}
                 playerId={playerId}

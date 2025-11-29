@@ -6,7 +6,7 @@ import { v4 as uuidv4 } from 'uuid'
 
 export async function POST(req: Request) {
   try {
-    const { playerName, targetScore } = await req.json()
+    const { playerName, targetScore, emergencyVotesEnabled } = await req.json()
 
     if (!playerName?.trim()) {
       return apiError('Player name is required')
@@ -31,6 +31,7 @@ export async function POST(req: Request) {
         code,
         ownerId: playerId,
         targetScore: validatedTargetScore,
+        emergencyVotesEnabled: emergencyVotesEnabled || false,
         players: {
           create: {
             id: playerId,

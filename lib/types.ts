@@ -1,4 +1,4 @@
-export type GameState = 'LOBBY' | 'IN_PROGRESS' | 'HINTS' | 'VOTING' | 'GUESSING' | 'ROUND_RESULTS' | 'GAME_OVER'
+export type GameState = 'LOBBY' | 'IN_PROGRESS' | 'HINTS' | 'VOTING' | 'EMERGENCY_VOTING' | 'GUESSING' | 'ROUND_RESULTS' | 'GAME_OVER'
 
 export interface PlayerData {
   id: string
@@ -16,6 +16,8 @@ export interface LobbyData {
   lastCompletedRoundNumber?: number
   state: GameState
   targetScore: number // First to this score wins (default 7)
+  emergencyVotesEnabled: boolean
+  emergencyVoteInitiated?: string // ID of the player who initiated the emergency vote
 }
 
 export interface RoundData {
@@ -27,7 +29,7 @@ export interface RoundData {
   turnOrder: string[]
   currentTurn: number
   hints: HintData[]
-  status: 'WAITING' | 'IN_PROGRESS' | 'HINTS_COMPLETE' | 'VOTING' | 'GUESSING' | 'COMPLETE'
+  status: 'WAITING' | 'IN_PROGRESS' | 'HINTS_COMPLETE' | 'VOTING' | 'EMERGENCY_VOTING' | 'GUESSING' | 'COMPLETE'
 }
 
 export interface HintData {
@@ -74,6 +76,8 @@ export type PusherEvent =
   | { type: 'ROUND_RESULTS'; result: RoundResult }
   | { type: 'GAME_OVER'; winner: PlayerData; finalScores: Record<string, number> }
   | { type: 'GAME_RESTARTED' }
+  | { type: 'EMERGENCY_VOTE_INITIATED'; initiatorId: string; initiatorName: string }
+  | { type: 'EMERGENCY_VOTING_STARTED' }
 
 export interface VoteResults {
   votes: Record<string, string[]> // suspectId -> voterIds

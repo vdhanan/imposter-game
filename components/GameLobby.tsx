@@ -103,6 +103,9 @@ export default function GameLobby({ lobbyId }: GameLobbyProps) {
               <p className="text-gray-600">Waiting for players to join...</p>
               <p className="text-sm text-gray-500 mt-1">
                 Playing to <span className="font-semibold">{lobby.targetScore}</span> points
+                {lobby.emergencyVotesEnabled && (
+                  <span className="ml-2 text-red-600 font-semibold">• Emergency Votes Enabled</span>
+                )}
               </p>
             </div>
             <div className="text-right">

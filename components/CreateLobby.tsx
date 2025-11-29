@@ -7,15 +7,16 @@ import { useAsyncAction } from '@/lib/hooks'
 
 export default function CreateLobby() {
   const [name, setName] = useState('')
-  const [targetScore, setTargetScore] = useState<number>(GAME_CONFIG.DEFAULT_TARGET_SCORE)
+  const [targetScore, setTargetScore] = useState<string>(GAME_CONFIG.DEFAULT_TARGET_SCORE.toString())
+  const [emergencyVotesEnabled, setEmergencyVotesEnabled] = useState(false)
   const router = useRouter()
   const { execute, loading, error } = useAsyncAction()
 
-  const createLobby = async (playerName: string, pointsToWin: number) => {
+  const createLobby = async (playerName: string, pointsToWin: number, enableEmergencyVotes: boolean) => {
     const response = await fetch('/api/lobby/create', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ playerName, targetScore: pointsToWin }),
+      body: JSON.stringify({ playerName, targetScore: pointsToWin, emergencyVotesEnabled: enableEmergencyVotes }),
     })
 
     if (!response.ok) {
@@ -30,7 +31,10 @@ export default function CreateLobby() {
     e.preventDefault()
     if (!name.trim() || loading) return
 
-    const data = await execute(() => createLobby(name, targetScore))
+    const score = parseInt(targetScore) || GAME_CONFIG.DEFAULT_TARGET_SCORE
+    const validScore = Math.min(20, Math.max(2, score))
+
+    const data = await execute(() => createLobby(name, validScore, emergencyVotesEnabled))
     if (data) {
       localStorage.setItem('playerId', data.playerId)
       localStorage.setItem('playerName', data.playerName)
@@ -66,18 +70,43 @@ export default function CreateLobby() {
               Points to Win
             </label>
             <input
-              type="number"
+              type="text"
               id="targetScore"
-              min="2"
-              max="20"
               value={targetScore}
-              onChange={(e) => setTargetScore(Math.min(20, Math.max(2, Number(e.target.value))))}
+              onChange={(e) => {
+                const value = e.target.value
+                if (value === '' || /^\d+$/.test(value)) {
+                  setTargetScore(value)
+                }
+              }}
+              onBlur={(e) => {
+                const num = parseInt(e.target.value) || GAME_CONFIG.DEFAULT_TARGET_SCORE
+                const validScore = Math.min(20, Math.max(2, num))
+                setTargetScore(validScore.toString())
+              }}
+              placeholder="7"
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
             />
             <p className="text-xs text-gray-500 mt-1">
               2-20 points
             </p>
           </div>
+
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              id="emergencyVotes"
+              checked={emergencyVotesEnabled}
+              onChange={(e) => setEmergencyVotesEnabled(e.target.checked)}
+              className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+            />
+            <label htmlFor="emergencyVotes" className="ml-2 block text-sm text-gray-700">
+              Enable Emergency Votes
+            </label>
+          </div>
+          <p className="text-xs text-gray-500 mt-1 ml-6">
+            Players can trigger an instant vote to catch the imposter early, but it&apos;s risky!
+          </p>
 
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded-lg">
