@@ -25,3 +25,44 @@ body {
     )
     rgb(var(--background-start-rgb));
 }
+
+/* Ensure inputs always have proper text color regardless of dark/light mode */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+input[type="tel"],
+input[type="url"],
+input[type="search"],
+textarea,
+select {
+  color: rgb(31, 41, 55); /* gray-800 */
+  background-color: white;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: rgb(156, 163, 175); /* gray-400 */
+}
+
+/* Dark mode support for inputs (when we implement it) */
+@media (prefers-color-scheme: dark) {
+  .dark-mode input[type="text"],
+  .dark-mode input[type="email"],
+  .dark-mode input[type="password"],
+  .dark-mode input[type="number"],
+  .dark-mode input[type="tel"],
+  .dark-mode input[type="url"],
+  .dark-mode input[type="search"],
+  .dark-mode textarea,
+  .dark-mode select {
+    color: rgb(243, 244, 246); /* gray-100 */
+    background-color: rgb(31, 41, 55); /* gray-800 */
+    border-color: rgb(75, 85, 99); /* gray-600 */
+  }
+
+  .dark-mode input::placeholder,
+  .dark-mode textarea::placeholder {
+    color: rgb(156, 163, 175); /* gray-400 */
+  }
+}

@@ -66,7 +66,14 @@ export async function POST(req: Request) {
       },
     }
 
-    await pusherServer.trigger(`lobby-${lobby.id}`, 'game-event', event)
+    // Wrap Pusher notification in try-catch to prevent it from failing the join
+    try {
+      await pusherServer.trigger(`lobby-${lobby.id}`, 'game-event', event)
+    } catch (pusherError) {
+      // Log the error but don't fail the join operation
+      console.error('Pusher notification failed:', pusherError)
+      // Continue with the join operation even if Pusher fails
+    }
 
     return NextResponse.json({
       lobbyId: lobby.id,
@@ -83,6 +90,14 @@ export async function POST(req: Request) {
     })
   } catch (error) {
     console.error('Error joining lobby:', error)
+
+    // Return more specific error message
+    if (error instanceof Error) {
+      return NextResponse.json({
+        error: error.message || 'Failed to join lobby'
+      }, { status: 500 })
+    }
+
     return NextResponse.json({ error: 'Failed to join lobby' }, { status: 500 })
   }
 }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { LobbyData, VoteResults } from '@/lib/types'
 
 interface GameRoomProps {
@@ -12,6 +12,7 @@ interface GameRoomProps {
   isMyTurn: boolean
   votingResults: VoteResults | null
   guessPrompt: boolean
+  votedPlayers: string[]
 }
 
 export default function GameRoom({
@@ -23,13 +24,25 @@ export default function GameRoom({
   isMyTurn,
   votingResults,
   guessPrompt,
+  votedPlayers,
 }: GameRoomProps) {
   const [hint, setHint] = useState('')
   const [submittingHint, setSubmittingHint] = useState(false)
   const [selectedVote, setSelectedVote] = useState<string | null>(null)
   const [voting, setVoting] = useState(false)
+  const [hasVoted, setHasVoted] = useState(votedPlayers.includes(playerId))
   const [guess, setGuess] = useState('')
   const [guessing, setGuessing] = useState(false)
+
+  // Update hasVoted when votedPlayers changes
+  useEffect(() => {
+    if (votedPlayers.includes(playerId)) {
+      setHasVoted(true)
+    } else if (lobby.state === 'VOTING') {
+      // Reset when new voting round starts
+      setHasVoted(false)
+    }
+  }, [votedPlayers, playerId, lobby.state])
 
   const handleSubmitHint = async () => {
     if (!hint.trim() || !isMyTurn || submittingHint) return
@@ -77,6 +90,8 @@ export default function GameRoom({
       if (!response.ok) {
         const data = await response.json()
         alert(data.error || 'Failed to vote')
+      } else {
+        setHasVoted(true)
       }
     } catch (error) {
       alert('Failed to vote')
@@ -247,30 +262,59 @@ export default function GameRoom({
             {lobby.state === 'VOTING' && !votingResults && (
               <>
                 <h2 className="text-xl font-bold text-gray-800 mb-4">Vote for the Imposter</h2>
-                <div className="grid grid-cols-2 gap-3 mb-4">
-                  {lobby.players
-                    .filter(p => p.id !== playerId)
-                    .map((player) => (
-                      <button
-                        key={player.id}
-                        onClick={() => setSelectedVote(player.id)}
-                        className={`p-4 rounded-lg border-2 transition ${
-                          selectedVote === player.id
-                            ? 'border-purple-500 bg-purple-50'
-                            : 'border-gray-200 hover:border-gray-300'
-                        }`}
-                      >
-                        {player.name}
-                      </button>
-                    ))}
+
+                {/* Show who hasn't voted yet */}
+                <div className="mb-4 p-3 bg-gray-100 rounded-lg">
+                  <p className="text-sm font-semibold text-gray-700 mb-2">Waiting for votes from:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {lobby.players
+                      .filter(p => !votedPlayers.includes(p.id))
+                      .map((player) => (
+                        <span
+                          key={player.id}
+                          className={`px-2 py-1 text-xs rounded ${
+                            player.id === playerId ? 'bg-blue-200 text-blue-800' : 'bg-gray-200 text-gray-700'
+                          }`}
+                        >
+                          {player.name} {player.id === playerId && '(You)'}
+                        </span>
+                      ))}
+                  </div>
                 </div>
-                <button
-                  onClick={handleVote}
-                  disabled={!selectedVote || voting}
-                  className="w-full py-3 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 disabled:bg-gray-400"
-                >
-                  {voting ? 'Voting...' : 'Submit Vote'}
-                </button>
+
+                {hasVoted ? (
+                  <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
+                    <p className="font-semibold">✓ Your vote has been submitted</p>
+                    <p className="text-sm">Waiting for other players to vote...</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-2 gap-3 mb-4">
+                      {lobby.players
+                        .filter(p => p.id !== playerId)
+                        .map((player) => (
+                          <button
+                            key={player.id}
+                            onClick={() => setSelectedVote(player.id)}
+                            className={`p-4 rounded-lg border-2 transition ${
+                              selectedVote === player.id
+                                ? 'border-purple-500 bg-purple-50'
+                                : 'border-gray-200 hover:border-gray-300'
+                            }`}
+                          >
+                            {player.name}
+                          </button>
+                        ))}
+                    </div>
+                    <button
+                      onClick={handleVote}
+                      disabled={!selectedVote || voting || hasVoted}
+                      className="w-full py-3 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 disabled:bg-gray-400"
+                    >
+                      {voting ? 'Voting...' : hasVoted ? 'Vote Submitted' : 'Submit Vote'}
+                    </button>
+                  </>
+                )}
               </>
             )}
 

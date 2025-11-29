@@ -14,6 +14,7 @@ export function useGameState({ lobbyId, playerId }: GameStateProps) {
   const [isMyTurn, setIsMyTurn] = useState(false)
   const [votingResults, setVotingResults] = useState<VoteResults | null>(null)
   const [guessPrompt, setGuessPrompt] = useState(false)
+  const [votedPlayers, setVotedPlayers] = useState<string[]>([])
   const { subscribe, unsubscribe } = usePusher()
 
   // Fetch initial lobby data
@@ -97,6 +98,11 @@ export function useGameState({ lobbyId, playerId }: GameStateProps) {
         case 'VOTING_STARTED':
           setLobby(prev => prev ? { ...prev, state: 'VOTING' } : null)
           setIsMyTurn(false)
+          setVotedPlayers([]) // Reset voted players for new voting round
+          break
+
+        case 'VOTE_CAST':
+          setVotedPlayers(prev => [...prev, event.voterId])
           break
 
         case 'VOTING_COMPLETE':
@@ -148,6 +154,7 @@ export function useGameState({ lobbyId, playerId }: GameStateProps) {
     isMyTurn,
     votingResults,
     guessPrompt,
+    votedPlayers,
     refetch: fetchLobby,
   }
 }

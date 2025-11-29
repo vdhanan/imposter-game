@@ -28,7 +28,7 @@ export default function GameLobby({ lobbyId }: GameLobbyProps) {
     setPlayerName(name)
   }, [router])
 
-  const { lobby, role, word, isMyTurn, votingResults, guessPrompt } = useGameState({
+  const { lobby, role, word, isMyTurn, votingResults, guessPrompt, votedPlayers } = useGameState({
     lobbyId,
     playerId: playerId || '',
   })
@@ -82,6 +82,7 @@ export default function GameLobby({ lobbyId }: GameLobbyProps) {
         isMyTurn={isMyTurn}
         votingResults={votingResults}
         guessPrompt={guessPrompt}
+        votedPlayers={votedPlayers}
       />
     )
   }

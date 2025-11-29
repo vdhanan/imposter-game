@@ -27,7 +27,8 @@ export async function POST(req: Request) {
     }
 
     // Verify it's player's turn
-    const currentPlayerId = round.turnOrder[round.currentTurn]
+    const currentPlayerIndex = round.currentTurn % round.turnOrder.length
+    const currentPlayerId = round.turnOrder[currentPlayerIndex]
     if (currentPlayerId !== playerId) {
       return NextResponse.json({ error: 'Not your turn' }, { status: 403 })
     }
