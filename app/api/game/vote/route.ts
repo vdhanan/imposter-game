@@ -50,7 +50,9 @@ export async function POST(req: Request) {
     if (allVotes.length === lobby.players.length) {
       const voteResults = buildVoteResults(allVotes)
       const mostVoted = getMostVotedPlayer(voteResults)
-      const wasImposterCaught = mostVoted === round.imposterId
+
+      const imposterVoteCount = voteResults[round.imposterId]?.length || 0
+      const wasImposterCaught = imposterVoteCount > lobby.players.length / 2
 
       await pusherServer.trigger(`lobby-${lobbyId}`, 'game-event', {
         type: 'VOTING_COMPLETE',

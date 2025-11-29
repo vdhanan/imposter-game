@@ -5,6 +5,7 @@ import { POST as submitHint } from '@/app/api/game/hint/route'
 import { POST as submitVote } from '@/app/api/game/vote/route'
 import { POST as submitGuess } from '@/app/api/game/guess/route'
 import { POST as restartGame } from '@/app/api/game/restart/route'
+import { POST as callEmergencyVote } from '@/app/api/game/emergency-vote/route'
 
 describe('Game Flow Integration Tests', () => {
   beforeEach(async () => {
@@ -207,6 +208,162 @@ describe('Game Flow Integration Tests', () => {
       // Imposter should have points for correct guess
       const imposter = updatedPlayers.find(p => p.id === players[1].id)
       expect(imposter?.score).toBeGreaterThan(0)
+    })
+  })
+
+  describe('Regular Vote with Tie', () => {
+    it('should not catch imposter when votes are tied (no majority)', async () => {
+      const lobby = await createTestLobby('REGTIE1')
+
+      const players = await Promise.all([
+        createTestPlayer('Player1', lobby.id, true),
+        createTestPlayer('Player2', lobby.id),
+        createTestPlayer('Player3', lobby.id),
+      ])
+
+      const round = await prisma.round.create({
+        data: {
+          lobbyId: lobby.id,
+          roundNumber: 1,
+          word: 'Apple',
+          category: 'Food',
+          imposterId: players[2].id,
+          turnOrder: players.map(p => p.id),
+          status: 'VOTING',
+          currentTurn: 3
+        }
+      })
+
+      const votes = [
+        { voterId: players[0].id, suspectId: players[2].id },
+        { voterId: players[1].id, suspectId: players[0].id },
+        { voterId: players[2].id, suspectId: players[1].id },
+      ]
+
+      for (const [index, vote] of votes.entries()) {
+        const voteRequest = {
+          json: async () => ({
+            lobbyId: lobby.id,
+            ...vote
+          })
+        } as Request
+
+        const response = await submitVote(voteRequest)
+
+        if (index === votes.length - 1) {
+          expect(response.status).toBe(200)
+        }
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 100))
+
+      const updatedRound = await prisma.round.findFirst({
+        where: { id: round.id }
+      })
+      expect(updatedRound?.status).toBe('COMPLETE')
+
+      const updatedPlayers = await prisma.player.findMany({
+        where: { lobbyId: lobby.id }
+      })
+
+      const player1 = updatedPlayers.find(p => p.id === players[0].id)
+      const player2 = updatedPlayers.find(p => p.id === players[1].id)
+      const player3 = updatedPlayers.find(p => p.id === players[2].id)
+
+      expect(player3?.score).toBe(1)
+      expect(player1?.score).toBe(0)
+      expect(player2?.score).toBe(0)
+    })
+  })
+
+  describe('Emergency Vote with Tie', () => {
+    it('should fail emergency vote when votes are tied (no majority)', async () => {
+      const lobby = await prisma.lobby.create({
+        data: {
+          code: 'EMRG1',
+          ownerId: 'temp-owner',
+          targetScore: 7,
+          emergencyVotesEnabled: true,
+          bettingEnabled: false,
+        },
+      })
+
+      const players = await Promise.all([
+        createTestPlayer('PlayerR', lobby.id, true),
+        createTestPlayer('PlayerD', lobby.id),
+        createTestPlayer('PlayerV', lobby.id),
+      ])
+
+      const startRequest = {
+        json: async () => ({
+          lobbyId: lobby.id,
+          playerId: players[0].id
+        })
+      } as Request
+
+      await startGame(startRequest)
+
+      const round = await prisma.round.findFirst({
+        where: { lobbyId: lobby.id, status: 'IN_PROGRESS' }
+      })
+
+      if (!round) throw new Error('Round not found')
+
+      await prisma.round.update({
+        where: { id: round.id },
+        data: {
+          imposterId: players[2].id
+        }
+      })
+      const emergencyRequest = {
+        json: async () => ({
+          lobbyId: lobby.id,
+          initiatorId: players[0].id
+        })
+      } as Request
+
+      await callEmergencyVote(emergencyRequest)
+
+      const emergencyVote = await prisma.emergencyVote.findUnique({
+        where: { roundId: round.id }
+      })
+      expect(emergencyVote).toBeDefined()
+      expect(emergencyVote?.initiatorId).toBe(players[0].id)
+
+      const votes = [
+        { voterId: players[0].id, suspectId: players[2].id },
+        { voterId: players[1].id, suspectId: players[0].id },
+        { voterId: players[2].id, suspectId: players[1].id },
+      ]
+
+      for (const [index, vote] of votes.entries()) {
+        const voteRequest = {
+          json: async () => ({
+            lobbyId: lobby.id,
+            ...vote
+          })
+        } as Request
+
+        const response = await submitVote(voteRequest)
+
+        if (index === votes.length - 1) {
+          expect(response.status).toBe(200)
+        }
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 100))
+
+      const updatedPlayers = await prisma.player.findMany({
+        where: { lobbyId: lobby.id }
+      })
+
+      const playerR = updatedPlayers.find(p => p.id === players[0].id)
+      const playerD = updatedPlayers.find(p => p.id === players[1].id)
+      const playerV = updatedPlayers.find(p => p.id === players[2].id)
+
+      expect(playerR?.score).toBe(-1)
+      expect(playerV?.score).toBe(1)
+      expect(playerD?.score).toBe(0)
     })
   })
 
