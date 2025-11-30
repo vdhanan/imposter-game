@@ -86,7 +86,9 @@ export async function POST(req: Request) {
     await pusherServer.trigger(`lobby-${lobbyId}`, 'game-event', hintEvent)
 
     if (isLastHint) {
-      const nextStatus = lobby.bettingEnabled ? 'BETTING' : 'VOTING'
+      // Skip betting phase on round 1 since players have no points
+      const shouldSkipBetting = round.roundNumber === 1
+      const nextStatus = (lobby.bettingEnabled && !shouldSkipBetting) ? 'BETTING' : 'VOTING'
 
       await prisma.round.update({
         where: { id: round.id },
