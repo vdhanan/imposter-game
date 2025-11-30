@@ -1,11 +1,16 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
+import { validatePlayer } from '@/lib/auth'
 
 export async function GET(
   req: Request,
   { params }: { params: { lobbyId: string } }
 ) {
   try {
+    // Get playerId from query params
+    const url = new URL(req.url)
+    const playerId = url.searchParams.get('playerId')
+
     const lobby = await prisma.lobby.findUnique({
       where: { id: params.lobbyId },
       include: {
@@ -75,6 +80,20 @@ export async function GET(
 
     const gameState = getGameState()
 
+    // Add player-specific data only if playerId is valid for this lobby
+    let playerData: { role?: string; word?: string | null; category?: string } | undefined
+    if (playerId && currentRound) {
+      const isValidPlayer = await validatePlayer(params.lobbyId, playerId)
+      if (isValidPlayer) {
+        const isImposter = currentRound.imposterId === playerId
+        playerData = {
+          role: isImposter ? 'IMPOSTER' : 'CIVILIAN',
+          word: isImposter ? null : currentRound.word,
+          category: currentRound.category,
+        }
+      }
+    }
+
     return NextResponse.json({
       id: lobby.id,
       code: lobby.code,
@@ -112,6 +131,7 @@ export async function GET(
       } : undefined,
       lastCompletedRoundNumber: lastCompletedRound?.roundNumber,
       state: gameState,
+      ...(playerData && { playerData }), // Include player-specific data if available
     })
   } catch (error) {
     console.error('Error fetching lobby:', error)

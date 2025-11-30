@@ -3,10 +3,18 @@ import { pusherServer } from '@/lib/pusher'
 import { getMostVotedPlayer } from '@/lib/utils'
 import { apiError, apiSuccess, getLobbyWithPlayers, getCurrentRound, processBetPayouts, buildVoteResults, buildRoundResult, sendGameEvent } from '@/lib/api-helpers'
 import type { PusherEvent } from '@/lib/types'
+import { requireValidPlayer } from '@/lib/auth'
 
 export async function POST(req: Request) {
   try {
     const { lobbyId, voterId, suspectId } = await req.json()
+
+    // Validate player belongs to lobby
+    try {
+      await requireValidPlayer(lobbyId, voterId)
+    } catch (error) {
+      return apiError('Unauthorized', 403)
+    }
 
     if (voterId === suspectId) {
       return apiError('Cannot vote for yourself')

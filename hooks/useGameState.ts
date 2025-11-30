@@ -23,10 +23,17 @@ export function useGameState({ lobbyId, playerId }: GameStateProps) {
   // Fetch initial lobby data
   const fetchLobby = useCallback(async () => {
     try {
-      const response = await fetch(`/api/lobby/${lobbyId}`)
+      const response = await fetch(`/api/lobby/${lobbyId}?playerId=${playerId}`)
       if (!response.ok) throw new Error('Failed to fetch lobby')
       const data = await response.json()
       setLobby(data)
+
+      // Set player-specific data if available
+      if (data.playerData) {
+        setRole(data.playerData.role as 'CIVILIAN' | 'IMPOSTER')
+        setWord(data.playerData.word)
+        setCategory(data.playerData.category)
+      }
 
       // Check if it's my turn
       if (data.currentRound) {
@@ -72,6 +79,10 @@ export function useGameState({ lobbyId, playerId }: GameStateProps) {
           setIsMyTurn(firstPlayerId === playerId)
           setRoundResult(null)
           setGameWinner(null)
+          // Reset role/word/category - they will be set via ROLE_ASSIGNED event
+          setRole(null)
+          setWord(null)
+          setCategory(null)
           break
 
         case 'HINT_SUBMITTED':
@@ -99,6 +110,12 @@ export function useGameState({ lobbyId, playerId }: GameStateProps) {
               },
             }
           })
+          break
+
+        case 'BETTING_STARTED':
+          setLobby(prev => prev ? { ...prev, state: 'BETTING' } : null)
+          setIsMyTurn(false)
+          // Note: Do NOT clear role/word/category here - they should persist
           break
 
         case 'VOTING_STARTED':

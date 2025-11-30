@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { pusherServer } from '@/lib/pusher'
 import type { PusherEvent } from '@/lib/types'
+import { requireValidPlayer } from '@/lib/auth'
 
 export async function POST(req: Request) {
   try {
@@ -10,6 +11,13 @@ export async function POST(req: Request) {
     // Validate input
     if (!text || text.trim().length === 0) {
       return NextResponse.json({ error: 'Hint text is required' }, { status: 400 })
+    }
+
+    // Validate player belongs to lobby
+    try {
+      await requireValidPlayer(lobbyId, playerId)
+    } catch (error) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
     // Get current round and lobby in one query
