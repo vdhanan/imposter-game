@@ -241,7 +241,9 @@ describe('Lobby Integration Tests', () => {
         }
       })
 
-      const request = {} as Request
+      const request = {
+        url: `http://localhost:3000/api/lobby/${createData.lobbyId}?playerId=${players[0].id}`
+      } as Request
       const params = { params: { lobbyId: createData.lobbyId } }
 
       const response = await getLobby(request, params)
@@ -257,7 +259,9 @@ describe('Lobby Integration Tests', () => {
     })
 
     it('should return 404 for non-existent lobby', async () => {
-      const request = {} as Request
+      const request = {
+        url: 'http://localhost:3000/api/lobby/fake-id'
+      } as Request
       const params = { params: { lobbyId: 'fake-id' } }
 
       const response = await getLobby(request, params)
