@@ -27,6 +27,15 @@ const customJestConfig = {
     '!**/node_modules/**',
     '!**/.next/**',
   ],
+  coverageThreshold: {
+    global: {
+      branches: 60,
+      functions: 60,
+      lines: 70,
+      statements: 70
+    }
+  },
+  coverageReporters: ['text', 'lcov', 'html', 'json'],
   maxWorkers: 1,  // Force tests to run sequentially
 }
 

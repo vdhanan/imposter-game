@@ -1,0 +1,18 @@
+#!/usr/bin/env sh
+
+# Run tests before committing
+echo "🧪 Running tests before commit..."
+npm test
+
+# If tests fail, prevent commit
+if [ $? -ne 0 ]; then
+  echo "❌ Tests failed! Please fix them before committing."
+  exit 1
+fi
+
+echo "✅ All tests passed!"
+
+# Run lint-staged for other checks (if configured)
+if [ -f "package.json" ] && grep -q '"lint-staged"' package.json; then
+  npx lint-staged
+fi
