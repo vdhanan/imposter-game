@@ -20,7 +20,15 @@ export const getRandomWord = () => {
     'techCompanies': 'Tech Company',
     'cuisineTypes': 'Cuisine Type',
     'boardGames': 'Board Game',
-    'famousLandmarks': 'Famous Landmark'
+    'famousLandmarks': 'Famous Landmark',
+    'nflPlayers': 'NFL Player',
+    'nbaPlayers': 'NBA Player',
+    'professionalGolfers': 'Professional Golfer',
+    'olympicEvents': 'Olympic Event',
+    'tennisPlayers': 'Tennis Player',
+    'soccerPlayers': 'Soccer Player',
+    'f1Drivers': 'F1 Driver',
+    'baseballPlayers': 'Baseball Player'
   }
 
   const categories = Object.keys(wordsList) as Array<keyof typeof wordsList>
