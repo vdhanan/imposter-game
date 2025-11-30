@@ -33,19 +33,22 @@ export default function BettingSection({
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
         const newTime = Math.max(0, prev - 1)
-        if (newTime === 0 && !myBet) {
-          // Time's up - transition to voting
+        if (newTime === 0) {
+          // Time's up - try to transition to voting phase
+          // This will succeed if all eligible players have bet or if no one can bet
           fetch('/api/game/betting-complete', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ lobbyId }),
+          }).catch(() => {
+            // Silently ignore errors - another client may have already transitioned
           })
         }
         return newTime
       })
     }, 1000)
     return () => clearInterval(timer)
-  }, [lobbyId, myBet])
+  }, [lobbyId])
   const maxBet = Math.min(3, currentPlayerScore)
 
   const handlePlaceBet = async () => {
@@ -96,7 +99,7 @@ export default function BettingSection({
         </div>
       </div>
 
-      {currentPlayerScore === 0 ? (
+      {currentPlayerScore <= 0 ? (
         <p className="text-gray-600 text-center py-4">
           You don&apos;t have any points to bet. Skipping betting phase.
         </p>

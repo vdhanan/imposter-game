@@ -26,24 +26,42 @@ export async function POST(req: Request) {
     })
 
     const playerIdsWithBets = new Set(bets.map(bet => bet.bettorId))
-    const allPlayersHaveBet = players
-      .filter(player => player.id !== round.imposterId)
-      .every(player => playerIdsWithBets.has(player.id))
+    // Only check if eligible players (score > 0, not imposter) have placed bets
+    const eligiblePlayers = players.filter(
+      player => player.id !== round.imposterId && player.score > 0
+    )
 
-    if (!allPlayersHaveBet) {
-      return apiError('Not all players have placed their bets', 400)
+    const allEligiblePlayersHaveBet = eligiblePlayers.every(
+      player => playerIdsWithBets.has(player.id)
+    )
+
+    // Allow transition if all eligible players have bet OR if timer expired (force transition)
+    // The force parameter can be added later for more explicit control
+    const canTransition = allEligiblePlayersHaveBet || eligiblePlayers.length === 0
+
+    if (!canTransition) {
+      return apiError('Not all eligible players have placed their bets', 400)
     }
 
-    await prisma.round.update({
-      where: { id: round.id },
+    // Use an atomic update to prevent race conditions
+    const updatedRound = await prisma.round.updateMany({
+      where: {
+        id: round.id,
+        status: 'BETTING' // Only update if still in BETTING status
+      },
       data: { status: 'VOTING' },
     })
 
-    await pusherServer.trigger(`lobby-${lobbyId}`, 'game-event', {
-      type: 'VOTING_STARTED'
-    })
+    // Only trigger event if we actually updated the round
+    if (updatedRound.count > 0) {
+      await pusherServer.trigger(`lobby-${lobbyId}`, 'game-event', {
+        type: 'VOTING_STARTED'
+      })
+      return apiSuccess({ success: true, transitioned: true })
+    }
 
-    return apiSuccess({ success: true })
+    // Round was already transitioned by another request
+    return apiSuccess({ success: true, transitioned: false })
   } catch (error) {
     console.error('Error completing betting phase:', error)
     return apiError('Failed to complete betting phase', 500)

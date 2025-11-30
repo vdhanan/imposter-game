@@ -10,17 +10,25 @@ export async function cleanDatabase() {
   await prisma.lobby.deleteMany()
 }
 
-export async function createTestLobby(code: string, ownerId?: string) {
+export async function createTestLobby(
+  code: string,
+  options?: {
+    ownerId?: string
+    bettingEnabled?: boolean
+    emergencyVotesEnabled?: boolean
+    targetScore?: number
+  }
+) {
   // If no ownerId provided, create a temporary one
-  const finalOwnerId = ownerId || 'temp-owner-' + Math.random().toString(36)
+  const finalOwnerId = options?.ownerId || 'temp-owner-' + Math.random().toString(36)
 
   return prisma.lobby.create({
     data: {
       code,
       ownerId: finalOwnerId,
-      targetScore: 7,
-      emergencyVotesEnabled: false,
-      bettingEnabled: false,
+      targetScore: options?.targetScore || 7,
+      emergencyVotesEnabled: options?.emergencyVotesEnabled || false,
+      bettingEnabled: options?.bettingEnabled || false,
     },
   })
 }

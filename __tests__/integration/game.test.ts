@@ -19,7 +19,7 @@ describe('Game Flow Integration Tests', () => {
 
   describe('Game Start and Hints', () => {
     it('should start a game and process hints', async () => {
-      const lobby = await createTestLobby('GAME1')
+      const lobby = await createTestLobby('GAME1', {})
       const alice = await createTestPlayer('Alice', lobby.id, true)
       const bob = await createTestPlayer('Bob', lobby.id)
       const charlie = await createTestPlayer('Charlie', lobby.id)
@@ -100,7 +100,7 @@ describe('Game Flow Integration Tests', () => {
     })
 
     it('should not allow starting game with less than 3 players', async () => {
-      const lobby = await createTestLobby('SMALL')
+      const lobby = await createTestLobby('SMALL', {})
       // Create players sequentially to ensure proper owner assignment
       const alice = await createTestPlayer('Alice', lobby.id, true)
       const bob = await createTestPlayer('Bob', lobby.id)
@@ -124,7 +124,7 @@ describe('Game Flow Integration Tests', () => {
   describe('Voting and Guessing', () => {
     it('should handle voting and imposter guessing', async () => {
       // Setup game in voting state
-      const lobby = await createTestLobby('VOTE1')
+      const lobby = await createTestLobby('VOTE1', {})
 
       const players = await Promise.all([
         createTestPlayer('Alice', lobby.id, true), // Owner
@@ -213,7 +213,7 @@ describe('Game Flow Integration Tests', () => {
 
   describe('Regular Vote with Tie', () => {
     it('should not catch imposter when votes are tied (no majority)', async () => {
-      const lobby = await createTestLobby('REGTIE1')
+      const lobby = await createTestLobby('REGTIE1', {})
 
       const players = await Promise.all([
         createTestPlayer('Player1', lobby.id, true),
@@ -240,7 +240,8 @@ describe('Game Flow Integration Tests', () => {
         { voterId: players[2].id, suspectId: players[1].id },
       ]
 
-      for (const [index, vote] of votes.entries()) {
+      for (let index = 0; index < votes.length; index++) {
+        const vote = votes[index]
         const voteRequest = {
           json: async () => ({
             lobbyId: lobby.id,
@@ -336,7 +337,8 @@ describe('Game Flow Integration Tests', () => {
         { voterId: players[2].id, suspectId: players[1].id },
       ]
 
-      for (const [index, vote] of votes.entries()) {
+      for (let index = 0; index < votes.length; index++) {
+        const vote = votes[index]
         const voteRequest = {
           json: async () => ({
             lobbyId: lobby.id,
@@ -370,7 +372,7 @@ describe('Game Flow Integration Tests', () => {
   describe('Game Restart', () => {
     it('should restart game and reset scores', async () => {
       // Create a finished game
-      const lobby = await createTestLobby('OVER1')
+      const lobby = await createTestLobby('OVER1', {})
 
       const players = await Promise.all([
         createTestPlayer('Winner', lobby.id, true), // Owner with high score
