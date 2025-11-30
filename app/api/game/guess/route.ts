@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { processBetPayouts, buildVoteResults, buildRoundResult, sendGameEvent } from '@/lib/api-helpers'
+import { fuzzyMatch } from '@/lib/utils'
 
 export async function POST(req: Request) {
   try {
@@ -26,7 +27,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Only imposter can guess' }, { status: 403 })
     }
 
-    const imposterGuessedCorrectly = guess.trim().toLowerCase() === round.word.toLowerCase()
+    // Use fuzzy matching to check if the guess is close enough
+    const imposterGuessedCorrectly = fuzzyMatch(guess, round.word)
 
     // Get lobby and all votes for this round
     const lobby = await prisma.lobby.findUnique({
