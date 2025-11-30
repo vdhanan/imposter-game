@@ -11,11 +11,16 @@ export const generateLobbyCode = () => {
 
 export const getRandomWord = () => {
   const categoryMap: Record<string, string> = {
-    'objects': 'Object',
-    'foods': 'Food & Drink',
-    'places': 'Place',
-    'animals': 'Animal',
-    'common': 'Common Thing'
+    'musicGroups': 'Music Group',
+    'europeanCities': 'European City',
+    'dogBreeds': 'Dog Breed',
+    'carBrands': 'Car Brand',
+    'movieGenres': 'Movie Genre',
+    'sportsTeams': 'Sports Team',
+    'techCompanies': 'Tech Company',
+    'cuisineTypes': 'Cuisine Type',
+    'boardGames': 'Board Game',
+    'famousLandmarks': 'Famous Landmark'
   }
 
   const categories = Object.keys(wordsList) as Array<keyof typeof wordsList>
