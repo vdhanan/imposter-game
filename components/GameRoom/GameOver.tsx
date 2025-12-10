@@ -19,7 +19,7 @@ export default function GameOver({
   onRestartGame,
   restartingGame,
 }: GameOverProps) {
-  const winner = gameWinner || players.sort((a, b) => b.score - a.score)[0]
+  const winner = gameWinner || [...players].sort((a, b) => b.score - a.score)[0]
 
   return (
     <>
@@ -40,7 +40,7 @@ export default function GameOver({
       <div className="mb-6">
         <h3 className="text-lg font-semibold text-gray-800 mb-3">Final Scoreboard</h3>
         <div className="space-y-2">
-          {players
+          {[...players]
             .sort((a, b) => b.score - a.score)
             .map((player, index) => (
               <div

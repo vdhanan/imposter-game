@@ -17,12 +17,14 @@
   "dependencies": {
     "@prisma/client": "^5.7.0",
     "fuse.js": "^7.1.0",
+    "immer": "^11.0.1",
     "next": "14.0.4",
     "pusher": "^5.2.0",
     "pusher-js": "^8.4.0-rc2",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "uuid": "^9.0.1"
+    "uuid": "^9.0.1",
+    "zustand": "^5.0.9"
   },
   "devDependencies": {
     "@types/jest": "^30.0.0",
@@ -46,13 +48,7 @@
     "*.{js,jsx,ts,tsx}": [
       "eslint --fix"
     ],
-    "app/**/*.{js,jsx,ts,tsx}": [
-      "jest --bail --findRelatedTests --passWithNoTests"
-    ],
-    "lib/**/*.{js,jsx,ts,tsx}": [
-      "jest --bail --findRelatedTests --passWithNoTests"
-    ],
-    "components/**/*.{js,jsx,ts,tsx}": [
+    "{app,lib,components,hooks}/**/*.{js,jsx,ts,tsx}": [
       "jest --bail --findRelatedTests --passWithNoTests"
     ]
   }

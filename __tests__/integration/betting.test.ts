@@ -2,9 +2,8 @@ import { prisma } from '@/lib/db'
 import { cleanDatabase, createTestLobby, createTestPlayer } from '../utils/test-helpers'
 import { POST as startGame } from '@/app/api/game/start/route'
 import { POST as placeBet } from '@/app/api/game/bet/route'
-import { POST as completeBetting } from '@/app/api/game/betting-complete/route'
 
-describe('Betting Phase Integration Tests', () => {
+describe('Betting Integration Tests (during Voting Phase)', () => {
   beforeEach(async () => {
     await cleanDatabase()
   })
@@ -53,7 +52,7 @@ describe('Betting Phase Integration Tests', () => {
       await prisma.round.update({
         where: { id: round!.id },
         data: {
-          status: 'BETTING',
+          status: 'VOTING',
           imposterId: alice.id
         }
       })
@@ -103,7 +102,7 @@ describe('Betting Phase Integration Tests', () => {
       await prisma.round.update({
         where: { id: round!.id },
         data: {
-          status: 'BETTING',
+          status: 'VOTING',
           imposterId: alice.id
         }
       })
@@ -153,7 +152,7 @@ describe('Betting Phase Integration Tests', () => {
       await prisma.round.update({
         where: { id: round!.id },
         data: {
-          status: 'BETTING',
+          status: 'VOTING',
           imposterId: alice.id
         }
       })
@@ -175,8 +174,8 @@ describe('Betting Phase Integration Tests', () => {
     })
   })
 
-  describe('Betting Phase Completion', () => {
-    it('should transition to voting when all eligible players have bet', async () => {
+  describe('Betting During Voting Phase', () => {
+    it('should allow eligible players to bet during voting phase', async () => {
       const lobby = await createTestLobby('BET4', { bettingEnabled: true })
       const alice = await createTestPlayer('Alice', lobby.id, true)
       const bob = await createTestPlayer('Bob', lobby.id)
@@ -213,7 +212,7 @@ describe('Betting Phase Integration Tests', () => {
       await prisma.round.update({
         where: { id: round!.id },
         data: {
-          status: 'BETTING',
+          status: 'VOTING',
           imposterId: alice.id // Alice is imposter
         }
       })
@@ -230,28 +229,26 @@ describe('Betting Phase Integration Tests', () => {
 
       await placeBet(betRequest)
 
-      // Complete betting phase
-      const completeRequest = {
-        json: async () => ({
-          lobbyId: lobby.id
-        })
-      } as any
+      // Verify bet was placed successfully during voting phase
+      const bet = await prisma.bet.findFirst({
+        where: {
+          roundId: round!.id,
+          bettorId: bob.id
+        }
+      })
 
-      const response = await completeBetting(completeRequest)
-      const data = await response.json()
+      expect(bet).toBeTruthy()
+      expect(bet?.targetId).toBe(alice.id)
+      expect(bet?.amount).toBe(2)
 
-      expect(response.status).toBe(200)
-      expect(data.success).toBe(true)
-      expect(data.transitioned).toBe(true)
-
-      // Verify round transitioned to VOTING
+      // Round should still be in VOTING status
       const updatedRound = await prisma.round.findFirst({
         where: { id: round!.id }
       })
       expect(updatedRound!.status).toBe('VOTING')
     })
 
-    it('should transition to voting when timer expires even if eligible players have not bet', async () => {
+    it('should allow betting during voting phase even if not all players bet', async () => {
       const lobby = await createTestLobby('BET5', { bettingEnabled: true })
       const alice = await createTestPlayer('Alice', lobby.id, true)
       const bob = await createTestPlayer('Bob', lobby.id)
@@ -284,46 +281,51 @@ describe('Betting Phase Integration Tests', () => {
       await prisma.round.update({
         where: { id: round!.id },
         data: {
-          status: 'BETTING',
+          status: 'VOTING',
           imposterId: alice.id
         }
       })
 
-      // No one places bets, simulate timer expiration
-      const completeRequest = {
+      // Bob places a bet but Charlie doesn't
+      const bobBetRequest = {
         json: async () => ({
-          lobbyId: lobby.id
+          lobbyId: lobby.id,
+          bettorId: bob.id,
+          targetId: alice.id,
+          amount: 1
         })
       } as any
 
-      // First attempt should fail (not all eligible players have bet)
-      const response1 = await completeBetting(completeRequest)
-      const data1 = await response1.json()
-      expect(response1.status).toBe(400)
-      expect(data1.error).toContain('eligible players')
+      const response = await placeBet(bobBetRequest)
+      expect(response.status).toBe(200)
 
-      // However, in real app, timer expiration would force transition
-      // Let's test the edge case where all players have 0 or negative points
-      await prisma.player.update({
-        where: { id: bob.id },
-        data: { score: 0 }
+      // Verify Bob's bet exists
+      const bobBet = await prisma.bet.findFirst({
+        where: {
+          roundId: round!.id,
+          bettorId: bob.id
+        }
       })
-      await prisma.player.update({
-        where: { id: charlie.id },
-        data: { score: -1 }
-      })
+      expect(bobBet).toBeTruthy()
 
-      // Now it should transition (no eligible players)
-      const response2 = await completeBetting(completeRequest)
-      const data2 = await response2.json()
+      // Verify Charlie can still bet later if they want
+      const charlieBetRequest = {
+        json: async () => ({
+          lobbyId: lobby.id,
+          bettorId: charlie.id,
+          targetId: bob.id,
+          amount: 2
+        })
+      } as any
 
+      const response2 = await placeBet(charlieBetRequest)
       expect(response2.status).toBe(200)
-      expect(data2.success).toBe(true)
 
-      const updatedRound = await prisma.round.findFirst({
-        where: { id: round!.id }
+      // Both bets should exist
+      const allBets = await prisma.bet.findMany({
+        where: { roundId: round!.id }
       })
-      expect(updatedRound!.status).toBe('VOTING')
+      expect(allBets).toHaveLength(2)
     })
 
     it('should handle race conditions when multiple clients try to complete betting', async () => {
@@ -332,14 +334,14 @@ describe('Betting Phase Integration Tests', () => {
       const bob = await createTestPlayer('Bob', lobby.id)
       const charlie = await createTestPlayer('Charlie', lobby.id)
 
-      // Set scores so no one can bet
+      // Set scores so Bob can bet
       await prisma.player.update({
         where: { id: bob.id },
-        data: { score: 0 }
+        data: { score: 5 }  // Bob needs points to bet
       })
       await prisma.player.update({
         where: { id: charlie.id },
-        data: { score: 0 }
+        data: { score: 3 }
       })
 
       // Start game
@@ -359,51 +361,47 @@ describe('Betting Phase Integration Tests', () => {
       await prisma.round.update({
         where: { id: round!.id },
         data: {
-          status: 'BETTING',
+          status: 'VOTING',
           imposterId: alice.id
         }
       })
 
-      // Simulate multiple clients trying to complete betting simultaneously
-      const completeRequest = {
+      // Simulate Bob trying to place the same bet multiple times simultaneously
+      const bobBetRequest = {
         json: async () => ({
-          lobbyId: lobby.id
+          lobbyId: lobby.id,
+          bettorId: bob.id,
+          targetId: alice.id,
+          amount: 1
         })
       } as any
 
       const [response1, response2, response3] = await Promise.all([
-        completeBetting(completeRequest),
-        completeBetting(completeRequest),
-        completeBetting(completeRequest)
+        placeBet(bobBetRequest),
+        placeBet(bobBetRequest),
+        placeBet(bobBetRequest)
       ])
 
-      const [data1, data2, data3] = await Promise.all([
-        response1.json(),
-        response2.json(),
-        response3.json()
-      ])
-
-      // At least one should succeed (some might get 404 if round already transitioned)
+      // Only one should succeed
       const successfulResponses = [response1, response2, response3]
         .filter(r => r.status === 200)
+      const failedResponses = [response1, response2, response3]
+        .filter(r => r.status === 400)
 
-      expect(successfulResponses.length).toBeGreaterThan(0)
+      expect(successfulResponses).toHaveLength(1)
+      expect(failedResponses).toHaveLength(2)
 
-      // Count how many actually transitioned
-      const transitionedCount = [data1, data2, data3]
-        .filter(d => d.transitioned === true).length
-
-      // Only one should have actually transitioned the round
-      expect(transitionedCount).toBe(1)
-
-      // Verify round is in VOTING status
-      const updatedRound = await prisma.round.findFirst({
-        where: { id: round!.id }
+      // Verify only one bet was created
+      const bobBets = await prisma.bet.findMany({
+        where: {
+          roundId: round!.id,
+          bettorId: bob.id
+        }
       })
-      expect(updatedRound!.status).toBe('VOTING')
+      expect(bobBets).toHaveLength(1)
     })
 
-    it('should skip betting phase entirely when no players have points', async () => {
+    it('should prevent betting when no players have points', async () => {
       const lobby = await createTestLobby('BET7', { bettingEnabled: true })
       const alice = await createTestPlayer('Alice', lobby.id, true)
       const bob = await createTestPlayer('Bob', lobby.id)
@@ -440,29 +438,32 @@ describe('Betting Phase Integration Tests', () => {
       await prisma.round.update({
         where: { id: round!.id },
         data: {
-          status: 'BETTING',
+          status: 'VOTING',
           imposterId: bob.id // Bob is imposter
         }
       })
 
-      // Complete betting phase immediately (no eligible players)
-      const completeRequest = {
+      // Try to place a bet - all players have zero points so no one can bet
+      const betRequest = {
         json: async () => ({
-          lobbyId: lobby.id
+          lobbyId: lobby.id,
+          bettorId: alice.id,
+          targetId: charlie.id,
+          amount: 1
         })
       } as any
 
-      const response = await completeBetting(completeRequest)
+      const response = await placeBet(betRequest)
       const data = await response.json()
 
-      expect(response.status).toBe(200)
-      expect(data.success).toBe(true)
-      expect(data.transitioned).toBe(true)
+      expect(response.status).toBe(400)
+      expect(data.error).toContain('Insufficient points')
 
-      const updatedRound = await prisma.round.findFirst({
-        where: { id: round!.id }
+      // No bets should exist
+      const bets = await prisma.bet.findMany({
+        where: { roundId: round!.id }
       })
-      expect(updatedRound!.status).toBe('VOTING')
+      expect(bets).toHaveLength(0)
     })
   })
 
@@ -496,7 +497,7 @@ describe('Betting Phase Integration Tests', () => {
       await prisma.round.update({
         where: { id: round!.id },
         data: {
-          status: 'BETTING',
+          status: 'VOTING',
           imposterId: alice.id
         }
       })

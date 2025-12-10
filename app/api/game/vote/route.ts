@@ -36,13 +36,21 @@ export async function POST(req: Request) {
       return apiError('Already voted')
     }
 
-    await prisma.vote.create({
-      data: {
-        roundId: round.id,
-        voterId,
-        suspectId,
-      },
-    })
+    try {
+      await prisma.vote.create({
+        data: {
+          roundId: round.id,
+          voterId,
+          suspectId,
+        },
+      })
+    } catch (error: any) {
+      // Handle race condition where vote was already created
+      if (error?.code === 'P2002') {
+        return apiError('Already voted')
+      }
+      throw error
+    }
 
     await pusherServer.trigger(`lobby-${lobbyId}`, 'game-event', {
       type: 'VOTE_CAST',
@@ -62,9 +70,24 @@ export async function POST(req: Request) {
       const imposterVoteCount = voteResults[round.imposterId]?.length || 0
       const wasImposterCaught = imposterVoteCount > lobby.players.length / 2
 
+      // Determine who was voted out (if anyone)
+      const voteCounts: Record<string, number> = {}
+      for (const [suspectId, voters] of Object.entries(voteResults)) {
+        voteCounts[suspectId] = voters.length
+      }
+      const maxVotes = Math.max(...Object.values(voteCounts))
+      const winners = Object.entries(voteCounts)
+        .filter(([_, count]) => count === maxVotes)
+        .map(([playerId]) => playerId)
+      const votedOutPlayerId = winners.length === 1 ? winners[0] : null
+
       await pusherServer.trigger(`lobby-${lobbyId}`, 'game-event', {
         type: 'VOTING_COMPLETE',
         results: {
+          voteCounts,
+          votedOutPlayerId,
+          winners,
+          // Keep old fields for backwards compatibility
           votes: voteResults,
           correctGuess: wasImposterCaught,
           imposterId: round.imposterId,
@@ -145,11 +168,15 @@ export async function POST(req: Request) {
 
         await sendGameEvent(lobbyId, roundResult)
       } else {
-        // Regular voting logic
-        if (wasImposterCaught) {
+        // Regular voting logic - only imposter gets to guess if voted out
+        const imposterVotedOut = votedOutPlayerId === round.imposterId
+
+        if (imposterVotedOut) {
           await prisma.round.update({
             where: { id: round.id },
-            data: { status: 'GUESSING' },
+            data: {
+              status: 'GUESSING'
+            },
           })
 
           await pusherServer.trigger(

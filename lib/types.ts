@@ -1,4 +1,4 @@
-export type GameState = 'LOBBY' | 'IN_PROGRESS' | 'HINTS' | 'BETTING' | 'VOTING' | 'EMERGENCY_VOTING' | 'GUESSING' | 'ROUND_RESULTS' | 'GAME_OVER'
+export type GameState = 'LOBBY' | 'IN_PROGRESS' | 'HINTS' | 'VOTING' | 'EMERGENCY_VOTING' | 'GUESSING' | 'ROUND_RESULTS' | 'GAME_OVER'
 
 export interface PlayerData {
   id: string
@@ -31,7 +31,7 @@ export interface RoundData {
   currentTurn: number
   hints: HintData[]
   bets?: BetData[]
-  status: 'WAITING' | 'IN_PROGRESS' | 'HINTS_COMPLETE' | 'BETTING' | 'VOTING' | 'EMERGENCY_VOTING' | 'GUESSING' | 'COMPLETE'
+  status: 'WAITING' | 'IN_PROGRESS' | 'HINTS_COMPLETE' | 'VOTING' | 'EMERGENCY_VOTING' | 'GUESSING' | 'COMPLETE'
 }
 
 export interface HintData {

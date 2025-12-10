@@ -2,7 +2,7 @@ import { prisma } from '@/lib/db'
 import { cleanDatabase, createTestLobby, createTestPlayer } from '../utils/test-helpers'
 import { POST as startGame } from '@/app/api/game/start/route'
 import { POST as submitHint } from '@/app/api/game/hint/route'
-import { POST as submitVote } from '@/app/api/game/vote/route'
+import { POST as voteWithBet } from '@/app/api/game/vote-with-bet/route'
 import { POST as submitGuess } from '@/app/api/game/guess/route'
 import { POST as restartGame } from '@/app/api/game/restart/route'
 import { POST as callEmergencyVote } from '@/app/api/game/emergency-vote/route'
@@ -152,11 +152,12 @@ describe('Game Flow Integration Tests', () => {
           json: async () => ({
             lobbyId: lobby.id,
             voterId: voter.id,
-            suspectId: players[1].id
+            suspectId: players[1].id,
+            bet: null
           })
         } as Request
 
-        const voteResponse = await submitVote(voteRequest)
+        const voteResponse = await voteWithBet(voteRequest)
         expect(voteResponse.status).toBe(200)
       }
 
@@ -165,11 +166,12 @@ describe('Game Flow Integration Tests', () => {
         json: async () => ({
           lobbyId: lobby.id,
           voterId: players[1].id,
-          suspectId: players[0].id
+          suspectId: players[0].id,
+          bet: null
         })
       } as Request
 
-      const imposterVoteResponse = await submitVote(imposterVoteRequest)
+      const imposterVoteResponse = await voteWithBet(imposterVoteRequest)
       expect(imposterVoteResponse.status).toBe(200)
 
       // Verify votes were saved
@@ -245,11 +247,12 @@ describe('Game Flow Integration Tests', () => {
         const voteRequest = {
           json: async () => ({
             lobbyId: lobby.id,
-            ...vote
+            ...vote,
+            bet: null
           })
         } as Request
 
-        const response = await submitVote(voteRequest)
+        const response = await voteWithBet(voteRequest)
 
         if (index === votes.length - 1) {
           expect(response.status).toBe(200)
@@ -342,11 +345,12 @@ describe('Game Flow Integration Tests', () => {
         const voteRequest = {
           json: async () => ({
             lobbyId: lobby.id,
-            ...vote
+            ...vote,
+            bet: null
           })
         } as Request
 
-        const response = await submitVote(voteRequest)
+        const response = await voteWithBet(voteRequest)
 
         if (index === votes.length - 1) {
           expect(response.status).toBe(200)

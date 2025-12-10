@@ -19,9 +19,26 @@ export async function POST(req: Request) {
       return apiError('Emergency votes are not enabled for this lobby')
     }
 
-    const round = await getCurrentRound(lobbyId, 'IN_PROGRESS')
+    const round = await prisma.round.findFirst({
+      where: {
+        lobbyId,
+        status: { in: ['IN_PROGRESS', 'HINTS_COMPLETE', 'VOTING', 'EMERGENCY_VOTING'] }
+      }
+    })
+
     if (!round) {
-      return apiError('No active round or round is not in progress', 400)
+      return apiError('No active round found', 400)
+    }
+
+    // Only allow emergency votes during hint phase
+    if (round.status !== 'IN_PROGRESS' && round.status !== 'HINTS_COMPLETE') {
+      if (round.status === 'VOTING') {
+        return apiError('Emergency votes can only be called during hint phase, not during voting', 400)
+      }
+      if (round.status === 'EMERGENCY_VOTING') {
+        return apiError('Emergency vote already in progress', 400)
+      }
+      return apiError('Emergency votes can only be called during hint phase', 400)
     }
 
     // Imposters can't call emergency votes since they know who they are

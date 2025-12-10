@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { useGameState } from '@/hooks/useGameState'
+import { useGameSync } from '@/hooks/useGameSync'
+import { useGameStore } from '@/lib/store/gameStore'
 import GameRoom from './GameRoom'
 
 interface GameLobbyProps {
@@ -28,10 +29,20 @@ export default function GameLobby({ lobbyId }: GameLobbyProps) {
     setPlayerName(name)
   }, [router])
 
-  const { lobby, role, word, category, isMyTurn, votingResults, guessPrompt, votedPlayers, roundResult, gameWinner } = useGameState({
-    lobbyId,
-    playerId: playerId || '',
-  })
+  // Initialize game sync for Pusher events
+  useGameSync({ lobbyId, playerId: playerId || '' })
+
+  // Get state from Zustand store
+  const lobby = useGameStore((state) => state.lobby)
+  const role = useGameStore((state) => state.role)
+  const word = useGameStore((state) => state.word)
+  const category = useGameStore((state) => state.category)
+  const isMyTurn = useGameStore((state) => state.isMyTurn)
+  const votingResults = useGameStore((state) => state.votingResults)
+  const guessPrompt = useGameStore((state) => state.guessPrompt)
+  const votedPlayers = useGameStore((state) => state.votedPlayers)
+  const roundResult = useGameStore((state) => state.roundResult)
+  const gameWinner = useGameStore((state) => state.gameWinner)
 
   const handleStartGame = async () => {
     if (!playerId || !lobby || lobby.ownerId !== playerId) return

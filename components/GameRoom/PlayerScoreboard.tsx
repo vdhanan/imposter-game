@@ -21,7 +21,7 @@ export default function PlayerScoreboard({
     <div className="bg-white rounded-lg shadow-xl p-6">
       <h2 className="text-xl font-bold text-gray-800 mb-4">Scoreboard</h2>
       <div className="space-y-2">
-        {players
+        {[...players]
           .sort((a, b) => b.score - a.score)
           .map((player) => {
             const isWinner = gameWinner?.id === player.id ||

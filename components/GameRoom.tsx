@@ -4,8 +4,7 @@ import { useState, useEffect } from 'react'
 import type { LobbyData, VoteResults, RoundResult, PlayerData, BetData } from '@/lib/types'
 import PlayerScoreboard from './GameRoom/PlayerScoreboard'
 import HintsSection from './GameRoom/HintsSection'
-import VotingSection from './GameRoom/VotingSection'
-import BettingSection from './GameRoom/BettingSection'
+import VotingPhaseSection from './GameRoom/VotingPhaseSection'
 import RoundResults from './GameRoom/RoundResults'
 import GameOver from './GameRoom/GameOver'
 import GuessingSection from './GameRoom/GuessingSection'
@@ -39,17 +38,9 @@ export default function GameRoom({
   roundResult,
   gameWinner,
 }: GameRoomProps) {
-  const [hasVoted, setHasVoted] = useState(votedPlayers.includes(playerId))
   const [startingNextRound, setStartingNextRound] = useState(false)
   const [restartingGame, setRestartingGame] = useState(false)
 
-  useEffect(() => {
-    if (votedPlayers.includes(playerId)) {
-      setHasVoted(true)
-    } else if (lobby.state === 'VOTING') {
-      setHasVoted(false)
-    }
-  }, [votedPlayers, playerId, lobby.state])
 
   const handleSubmitHint = async (hint: string) => {
     const response = await fetch('/api/game/hint', {
@@ -158,12 +149,11 @@ export default function GameRoom({
                   : `Round ${lobby.currentRound?.roundNumber || 1}`}
               </h1>
               <p className="text-gray-600">
-                {lobby.state === 'BETTING' ? '💰 Place your bets!' :
-                 lobby.state === 'VOTING' ? 'Vote for the imposter!' :
+                {lobby.state === 'VOTING' ? 'Vote for the imposter!' :
                  lobby.state === 'EMERGENCY_VOTING' ? '🚨 Emergency Vote! Vote for the imposter!' :
                  lobby.state === 'GUESSING' ? 'Imposter is guessing...' :
                  lobby.state === 'ROUND_RESULTS' ? 'Round Complete!' :
-                 lobby.state === 'GAME_OVER' ? `${gameWinner?.name || lobby.players.sort((a, b) => b.score - a.score)[0]?.name} wins!` :
+                 lobby.state === 'GAME_OVER' ? `${gameWinner?.name || [...lobby.players].sort((a, b) => b.score - a.score)[0]?.name} wins!` :
                  `Pass ${currentPass} of 2`}
               </p>
               <p className="text-sm text-gray-500 mt-1">
@@ -220,42 +210,14 @@ export default function GameRoom({
               />
             )}
 
-            {lobby.state === 'BETTING' && lobby.bettingEnabled && (
-              <BettingSection
-                lobbyId={lobby.id}
-                playerId={playerId}
-                players={lobby.players}
-                currentPlayerScore={lobby.players.find(p => p.id === playerId)?.score || 0}
-                bets={lobby.currentRound?.bets || []}
-                onBetPlaced={(bet: BetData) => {
-                  // Update local state if needed
-                }}
-              />
-            )}
-
             {(lobby.state === 'VOTING' || lobby.state === 'EMERGENCY_VOTING' || (votingResults && lobby.state !== 'ROUND_RESULTS')) && (
-              <VotingSection
+              <VotingPhaseSection
+                lobbyId={lobby.id}
                 players={lobby.players}
                 playerId={playerId}
-                votedPlayers={votedPlayers}
-                votingResults={votingResults}
-                onVote={async (suspectId) => {
-                  const response = await fetch('/api/game/vote', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      lobbyId: lobby.id,
-                      voterId: playerId,
-                      suspectId,
-                    }),
-                  })
-                  if (!response.ok) {
-                    const data = await response.json()
-                    alert(data.error || 'Failed to vote')
-                  } else {
-                    setHasVoted(true)
-                  }
-                }}
+                currentPlayerScore={lobby.players.find(p => p.id === playerId)?.score || 0}
+                bettingEnabled={lobby.bettingEnabled}
+                isEmergencyVote={lobby.state === 'EMERGENCY_VOTING'}
               />
             )}
 
@@ -289,7 +251,7 @@ export default function GameRoom({
                 <div className="mb-6 p-4 bg-gray-100 rounded-lg">
                   <p className="text-gray-600 mb-2">Current Scores:</p>
                   <div className="space-y-1">
-                    {lobby.players
+                    {[...lobby.players]
                       .sort((a, b) => b.score - a.score)
                       .map(player => (
                         <div key={player.id} className="text-sm">
