@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/db'
 import { pusherServer } from '@/lib/pusher'
-import { apiError, apiSuccess, processBetPayouts } from '@/lib/api-helpers'
+import { apiError, apiSuccess } from '@/lib/api-helpers'
 
 export async function POST(req: Request) {
   try {
@@ -26,7 +26,7 @@ export async function POST(req: Request) {
 
     // Use transaction for atomicity
     const result = await prisma.$transaction(async (tx) => {
-      // Get round and check status
+      // Get round and check status - transaction isolation prevents race conditions
       const round = await tx.round.findFirst({
         where: {
           lobbyId,
@@ -34,7 +34,8 @@ export async function POST(req: Request) {
         },
         include: {
           votes: { where: { voterId } },
-          bets: { where: { bettorId: voterId } }
+          bets: { where: { bettorId: voterId } },
+          lobby: { include: { players: true } }
         }
       })
 
@@ -114,7 +115,137 @@ export async function POST(req: Request) {
         tx.player.findUnique({ where: { id: suspectId } })
       ])
 
-      return { vote, voter, suspect, bet, round }
+      // Check if voting is complete - INSIDE transaction to prevent race condition
+      const allVotes = await tx.vote.findMany({
+        where: { roundId: round.id }
+      })
+
+      let votingResults = null
+      let betResults = []
+
+      if (allVotes.length === round.lobby.players.length) {
+        // Calculate results and transition to next phase
+        const voteCounts: Record<string, number> = {}
+        for (const v of allVotes) {
+          voteCounts[v.suspectId] = (voteCounts[v.suspectId] || 0) + 1
+        }
+
+        const maxVotes = Math.max(...Object.values(voteCounts))
+        const winners = Object.entries(voteCounts)
+          .filter(([_, count]) => count === maxVotes)
+          .map(([playerId]) => playerId)
+
+        const votedOutPlayerId = winners.length === 1 ? winners[0] : null
+        const imposterVoteCount = voteCounts[round.imposterId] || 0
+        const wasImposterCaught = imposterVoteCount > round.lobby.players.length / 2
+
+        // Handle emergency voting scoring
+        if (round.status === 'EMERGENCY_VOTING') {
+          const emergencyVote = await tx.emergencyVote.findUnique({
+            where: { roundId: round.id }
+          })
+
+          if (emergencyVote) {
+            if (wasImposterCaught) {
+              // Emergency vote success: initiator gets 2, others get 1
+              await tx.player.update({
+                where: { id: emergencyVote.initiatorId },
+                data: { score: { increment: 2 } }
+              })
+
+              const otherPlayerIds = round.lobby.players
+                .filter(p => p.id !== round.imposterId && p.id !== emergencyVote.initiatorId)
+                .map(p => p.id)
+
+              await tx.player.updateMany({
+                where: { id: { in: otherPlayerIds } },
+                data: { score: { increment: 1 } }
+              })
+            } else {
+              // Emergency vote failed: initiator loses 1, imposter gains 1
+              await tx.player.update({
+                where: { id: emergencyVote.initiatorId },
+                data: { score: { increment: -1 } }
+              })
+              await tx.player.update({
+                where: { id: round.imposterId },
+                data: { score: { increment: 1 } }
+              })
+            }
+          }
+
+          await tx.round.update({
+            where: { id: round.id },
+            data: { status: 'COMPLETE' }
+          })
+        } else {
+          // Regular voting - check if imposter was voted out
+          const imposterVotedOut = votedOutPlayerId === round.imposterId
+
+          // Process betting payouts if betting is enabled
+          if (round.lobby.bettingEnabled) {
+            // Get all bets for this round
+            const bets = await tx.bet.findMany({
+              where: { roundId: round.id },
+              include: {
+                bettor: true,
+                target: true
+              }
+            })
+
+            for (const betItem of bets) {
+              const isCorrect = betItem.targetId === round.imposterId
+              const payout = isCorrect ? betItem.amount : -betItem.amount
+
+              await tx.player.update({
+                where: { id: betItem.bettorId },
+                data: { score: { increment: payout } }
+              })
+
+              betResults.push({
+                bettorId: betItem.bettorId,
+                bettorName: betItem.bettor.name,
+                targetId: betItem.targetId,
+                targetName: betItem.target.name,
+                amount: betItem.amount,
+                isCorrect,
+                payout
+              })
+            }
+          }
+
+          // Update round status - only go to GUESSING if imposter was voted out
+          if (imposterVotedOut) {
+            await tx.round.update({
+              where: { id: round.id },
+              data: {
+                status: 'GUESSING'
+              }
+            })
+          } else {
+            // Imposter evaded detection - award point
+            await tx.player.update({
+              where: { id: round.imposterId },
+              data: { score: { increment: 1 } }
+            })
+
+            await tx.round.update({
+              where: { id: round.id },
+              data: {
+                status: 'COMPLETE'
+              }
+            })
+          }
+        }
+
+        votingResults = {
+          voteCounts,
+          votedOutPlayerId,
+          winners
+        }
+      }
+
+      return { vote, voter, suspect, bet, round, votingResults, betResults }
     })
 
     // Send events after successful transaction
@@ -140,121 +271,19 @@ export async function POST(req: Request) {
       suspectName: result.suspect?.name || ''
     })
 
-    // Check if voting is complete
-    const updatedRound = await prisma.round.findUnique({
-      where: { id: result.round.id },
-      include: {
-        votes: true,
-        lobby: {
-          include: { players: true }
-        }
-      }
-    })
-
-    if (updatedRound && updatedRound.votes.length === updatedRound.lobby.players.length) {
-      // Calculate results and transition to next phase
-      const voteCounts: Record<string, number> = {}
-      for (const vote of updatedRound.votes) {
-        voteCounts[vote.suspectId] = (voteCounts[vote.suspectId] || 0) + 1
-      }
-
-      const maxVotes = Math.max(...Object.values(voteCounts))
-      const winners = Object.entries(voteCounts)
-        .filter(([_, count]) => count === maxVotes)
-        .map(([playerId]) => playerId)
-
-      const votedOutPlayerId = winners.length === 1 ? winners[0] : null
-      const imposterVoteCount = voteCounts[result.round.imposterId] || 0
-      const wasImposterCaught = imposterVoteCount > updatedRound.lobby.players.length / 2
-
-      // Handle emergency voting scoring
-      if (result.round.status === 'EMERGENCY_VOTING') {
-        const emergencyVote = await prisma.emergencyVote.findUnique({
-          where: { roundId: result.round.id }
+    // Send voting complete event if voting finished
+    if (result.votingResults) {
+      // Send bet results if any
+      if (result.betResults.length > 0) {
+        await pusherServer.trigger(`lobby-${lobbyId}`, 'game-event', {
+          type: 'BET_RESULTS',
+          results: result.betResults
         })
-
-        if (emergencyVote) {
-          if (wasImposterCaught) {
-            // Emergency vote success: initiator gets 2, others get 1
-            await prisma.player.update({
-              where: { id: emergencyVote.initiatorId },
-              data: { score: { increment: 2 } }
-            })
-
-            const otherPlayers = updatedRound.lobby.players.filter(p =>
-              p.id !== result.round.imposterId && p.id !== emergencyVote.initiatorId
-            )
-            for (const player of otherPlayers) {
-              await prisma.player.update({
-                where: { id: player.id },
-                data: { score: { increment: 1 } }
-              })
-            }
-          } else {
-            // Emergency vote failed: initiator loses 1, imposter gains 1
-            await prisma.player.update({
-              where: { id: emergencyVote.initiatorId },
-              data: { score: { increment: -1 } }
-            })
-            await prisma.player.update({
-              where: { id: result.round.imposterId },
-              data: { score: { increment: 1 } }
-            })
-          }
-        }
-
-        await prisma.round.update({
-          where: { id: updatedRound.id },
-          data: { status: 'COMPLETE' }
-        })
-      } else {
-        // Regular voting - check if imposter was voted out
-        const imposterVotedOut = votedOutPlayerId === result.round.imposterId
-
-        // Process betting payouts if betting is enabled
-        if (updatedRound.lobby.bettingEnabled) {
-          const betResults = await processBetPayouts(updatedRound.id, result.round.imposterId)
-
-          // Send bet results event
-          if (betResults.length > 0) {
-            await pusherServer.trigger(`lobby-${lobbyId}`, 'game-event', {
-              type: 'BET_RESULTS',
-              results: betResults
-            })
-          }
-        }
-
-        // Update round status - only go to GUESSING if imposter was voted out
-        if (imposterVotedOut) {
-          await prisma.round.update({
-            where: { id: updatedRound.id },
-            data: {
-              status: 'GUESSING'
-            }
-          })
-        } else {
-          // Imposter evaded detection - award point
-          await prisma.player.update({
-            where: { id: result.round.imposterId },
-            data: { score: { increment: 1 } }
-          })
-
-          await prisma.round.update({
-            where: { id: updatedRound.id },
-            data: {
-              status: 'COMPLETE'
-            }
-          })
-        }
       }
 
       await pusherServer.trigger(`lobby-${lobbyId}`, 'game-event', {
         type: 'VOTING_COMPLETE',
-        results: {
-          voteCounts,
-          votedOutPlayerId,
-          winners
-        }
+        results: result.votingResults
       })
     }
 
