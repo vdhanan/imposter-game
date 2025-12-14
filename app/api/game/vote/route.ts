@@ -63,7 +63,10 @@ export async function POST(req: Request) {
       where: { roundId: round.id },
     })
 
-    if (allVotes.length === lobby.players.length) {
+    // Only count online players for vote completion
+    const onlinePlayers = lobby.players.filter(p => p.isOnline)
+
+    if (allVotes.length === onlinePlayers.length) {
       const voteResults = buildVoteResults(allVotes)
       const mostVoted = getMostVotedPlayer(voteResults)
 

@@ -12,7 +12,8 @@ interface GameSyncProps {
 
 // This hook syncs Zustand store with server state via Pusher
 export function useGameSync({ lobbyId, playerId }: GameSyncProps) {
-  const { subscribe, unsubscribe } = usePusher()
+  const playerName = typeof window !== 'undefined' ? localStorage.getItem('playerName') : null
+  const { subscribe, subscribePresence, unsubscribe } = usePusher({ playerId, playerName: playerName || '' })
   const store = useGameStore()
 
   // Fetch initial lobby data
@@ -47,6 +48,49 @@ export function useGameSync({ lobbyId, playerId }: GameSyncProps) {
 
   useEffect(() => {
     fetchLobby()
+
+    // Store event handlers for cleanup
+    const handlers: { event: string; handler: any; channel: any }[] = []
+
+    // Subscribe to presence channel for online/offline tracking
+    const presenceChannel = subscribePresence(`presence-lobby-${lobbyId}`)
+    if (presenceChannel) {
+      // Handle member added (player comes online)
+      const memberAddedHandler = (member: any) => {
+        store.updateLobby((lobby) => {
+          const player = lobby.players.find(p => p.id === member.id)
+          if (player) {
+            player.isOnline = true
+          }
+        })
+      }
+      presenceChannel.bind('pusher:member_added', memberAddedHandler)
+      handlers.push({ event: 'pusher:member_added', handler: memberAddedHandler, channel: presenceChannel })
+
+      // Handle member removed (player goes offline)
+      const memberRemovedHandler = (member: any) => {
+        store.updateLobby((lobby) => {
+          const player = lobby.players.find(p => p.id === member.id)
+          if (player) {
+            player.isOnline = false
+          }
+        })
+      }
+      presenceChannel.bind('pusher:member_removed', memberRemovedHandler)
+      handlers.push({ event: 'pusher:member_removed', handler: memberRemovedHandler, channel: presenceChannel })
+
+      // Handle subscription succeeded to get initial members
+      const subscriptionHandler = (members: any) => {
+        const onlineIds = Object.keys(members.members)
+        store.updateLobby((lobby) => {
+          lobby.players.forEach(player => {
+            player.isOnline = onlineIds.includes(player.id)
+          })
+        })
+      }
+      presenceChannel.bind('pusher:subscription_succeeded', subscriptionHandler)
+      handlers.push({ event: 'pusher:subscription_succeeded', handler: subscriptionHandler, channel: presenceChannel })
+    }
 
     // Subscribe to public lobby channel
     const lobbyChannel = subscribe(`lobby-${lobbyId}`)
@@ -175,10 +219,16 @@ export function useGameSync({ lobbyId, playerId }: GameSyncProps) {
     }
 
     return () => {
+      // Unbind all event handlers to prevent memory leaks
+      handlers.forEach(({ event, handler, channel }) => {
+        channel.unbind(event, handler)
+      })
+
       unsubscribe(`lobby-${lobbyId}`)
+      unsubscribe(`presence-lobby-${lobbyId}`)
       unsubscribe(`private-player-${playerId}`)
     }
-  }, [lobbyId, playerId, subscribe, unsubscribe, store, fetchLobby])
+  }, [lobbyId, playerId, subscribe, subscribePresence, unsubscribe, store, fetchLobby])
 
   return {
     lobby: store.lobby,

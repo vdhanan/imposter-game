@@ -77,6 +77,30 @@ export default function GameRoom({
     }
   }
 
+  const handleRemovePlayer = async (playerIdToRemove: string) => {
+    if (!playerId || lobby.ownerId !== playerId) return
+
+    if (window.confirm('Are you sure you want to remove this player?')) {
+      try {
+        const response = await fetch('/api/game/remove-player', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            lobbyId: lobby.id,
+            hostId: playerId,
+            playerIdToRemove
+          }),
+        })
+
+        if (!response.ok) {
+          const data = await response.json()
+          alert(data.error || 'Failed to remove player')
+        }
+      } catch (error) {
+        alert('Failed to remove player')
+      }
+    }
+  }
 
 
   const handleStartNextRound = async () => {
@@ -194,6 +218,9 @@ export default function GameRoom({
             targetScore={lobby.targetScore || 7}
             gameWinner={gameWinner}
             gameOver={lobby.state === 'GAME_OVER'}
+            isHost={lobby.ownerId === playerId}
+            lobbyId={lobby.id}
+            onRemovePlayer={handleRemovePlayer}
           />
 
           {/* Game Area */}

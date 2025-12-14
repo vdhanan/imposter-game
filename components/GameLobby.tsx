@@ -66,6 +66,31 @@ export default function GameLobby({ lobbyId }: GameLobbyProps) {
     }
   }
 
+  const handleRemovePlayer = async (playerIdToRemove: string) => {
+    if (!playerId || !lobby || lobby.ownerId !== playerId) return
+
+    if (confirm('Are you sure you want to remove this player?')) {
+      try {
+        const response = await fetch('/api/game/remove-player', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            lobbyId,
+            hostId: playerId,
+            playerIdToRemove
+          }),
+        })
+
+        if (!response.ok) {
+          const data = await response.json()
+          alert(data.error || 'Failed to remove player')
+        }
+      } catch (error) {
+        alert('Failed to remove player')
+      }
+    }
+  }
+
   const copyLobbyLink = () => {
     if (lobby) {
       const url = `${window.location.origin}/join/${lobby.code}`
@@ -143,22 +168,46 @@ export default function GameLobby({ lobbyId }: GameLobbyProps) {
               {lobby.players.map((player) => (
                 <div
                   key={player.id}
-                  className={`p-3 rounded-lg border-2 ${
+                  className={`p-3 rounded-lg border-2 relative ${
                     player.id === playerId
                       ? 'border-purple-500 bg-purple-50'
-                      : 'border-gray-200 bg-gray-50'
+                      : player.isOnline
+                      ? 'border-gray-200 bg-gray-50'
+                      : 'border-gray-300 bg-gray-100 opacity-60'
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="font-medium text-gray-800">
-                      {player.name}
-                      {player.id === playerId && ' (You)'}
-                    </span>
-                    {player.id === lobby.ownerId && (
-                      <span className="text-xs bg-purple-600 text-white px-2 py-1 rounded">
-                        Host
+                    <div className="flex items-center gap-2">
+                      {/* Online indicator */}
+                      <div
+                        className={`w-2 h-2 rounded-full ${
+                          player.isOnline ? 'bg-green-500' : 'bg-gray-400'
+                        }`}
+                        title={player.isOnline ? 'Online' : 'Offline'}
+                      />
+                      <span className="font-medium text-gray-800">
+                        {player.name}
+                        {player.id === playerId && ' (You)'}
+                        {!player.isOnline && ' (Offline)'}
                       </span>
-                    )}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      {player.id === lobby.ownerId && (
+                        <span className="text-xs bg-purple-600 text-white px-2 py-1 rounded">
+                          Host
+                        </span>
+                      )}
+                      {/* Remove button for host */}
+                      {isOwner && player.id !== playerId && lobby.players.filter(p => p.isOnline).length > 3 && (
+                        <button
+                          onClick={() => handleRemovePlayer(player.id)}
+                          className="text-xs bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded ml-1"
+                          title="Remove player"
+                        >
+                          ×
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}

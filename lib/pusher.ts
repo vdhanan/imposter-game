@@ -9,12 +9,19 @@ export const pusherServer = new Pusher({
   useTLS: true,
 })
 
-export const getPusherClient = () => {
+export const getPusherClient = (playerId?: string, playerName?: string) => {
   if (typeof window === 'undefined') {
     return null
   }
 
   return new PusherClient(process.env.NEXT_PUBLIC_PUSHER_APP_KEY!, {
     cluster: process.env.NEXT_PUBLIC_PUSHER_APP_CLUSTER!,
+    authEndpoint: '/api/pusher/auth',
+    auth: {
+      headers: {
+        'x-player-id': playerId || '',
+        'x-player-name': playerName || '',
+      },
+    },
   })
 }
