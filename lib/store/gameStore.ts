@@ -95,7 +95,7 @@ export const useGameStore = create<GameStore>()(
         state.votingResults = results
         if (state.lobby && state.lobby.currentRound) {
           // Check if imposter was voted out
-          const imposterVotedOut = results.votedOutPlayerId === state.lobby.currentRound.imposterId
+          const imposterVotedOut = results.correctGuess
 
           if (imposterVotedOut) {
             state.lobby.state = 'GUESSING'

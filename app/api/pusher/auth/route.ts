@@ -44,9 +44,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Invalid player credentials' }, { status: 403 })
     }
 
-    // Check if lobby exists and is active
-    if (!player.lobby || player.lobby.state === 'GAME_OVER') {
-      return NextResponse.json({ error: 'Lobby is not active' }, { status: 403 })
+    // Check if lobby exists
+    if (!player.lobby) {
+      return NextResponse.json({ error: 'Lobby not found' }, { status: 403 })
     }
 
     // Authorize the presence channel with user data

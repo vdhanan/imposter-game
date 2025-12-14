@@ -45,11 +45,16 @@ export const getRandomWord = () => {
 export const shuffleArray = <T>(array: T[]): T[] =>
   [...array].sort(() => Math.random() - 0.5)
 
-export const getMostVotedPlayer = (votes: Record<string, string[]>): string =>
-  Object.entries(votes).reduce(
-    (max, [id, voters]) => voters.length > (votes[max]?.length || 0) ? id : max,
-    ''
-  )
+export const getMostVotedPlayer = (votes: Record<string, string[]>): string => {
+  const entries = Object.entries(votes)
+  if (entries.length === 0) return ''
+
+  const maxVotes = Math.max(...entries.map(([_, voters]) => voters.length))
+  const topVoted = entries.filter(([_, voters]) => voters.length === maxVotes)
+
+  // Return empty string if there's a tie
+  return topVoted.length === 1 ? topVoted[0][0] : ''
+}
 
 /**
  * Check if a guess fuzzy matches the target word

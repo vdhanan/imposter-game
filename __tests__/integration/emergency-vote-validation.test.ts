@@ -18,8 +18,7 @@ describe('Emergency Vote Validation', () => {
 
   it('should not allow emergency vote during voting phase', async () => {
     const lobby = await createTestLobby('EMRV1', {
-      emergencyVotesEnabled: true,
-      emergencyVotesPerPlayer: 1
+      emergencyVotesEnabled: true
     })
     const alice = await createTestPlayer('Alice', lobby.id, true)
     const bob = await createTestPlayer('Bob', lobby.id)
@@ -52,8 +51,7 @@ describe('Emergency Vote Validation', () => {
 
   it('should allow emergency vote during hint phase', async () => {
     const lobby = await createTestLobby('EMRV2', {
-      emergencyVotesEnabled: true,
-      emergencyVotesPerPlayer: 1
+      emergencyVotesEnabled: true
     })
     const alice = await createTestPlayer('Alice', lobby.id, true)
     const bob = await createTestPlayer('Bob', lobby.id)
@@ -98,8 +96,7 @@ describe('Emergency Vote Validation', () => {
 
   it('should not allow emergency vote during EMERGENCY_VOTING phase', async () => {
     const lobby = await createTestLobby('EMRV3', {
-      emergencyVotesEnabled: true,
-      emergencyVotesPerPlayer: 2
+      emergencyVotesEnabled: true
     })
     const alice = await createTestPlayer('Alice', lobby.id, true)
     const bob = await createTestPlayer('Bob', lobby.id)

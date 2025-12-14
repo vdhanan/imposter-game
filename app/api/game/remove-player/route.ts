@@ -2,13 +2,28 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { pusherServer } from '@/lib/pusher'
 import type { PusherEvent } from '@/lib/types'
+import type { Round, Bet, Hint, Vote, EmergencyVote, Player, Lobby } from '@prisma/client'
+
+// Type for Round with its relations
+type RoundWithRelations = Round & {
+  hints: Hint[]
+  votes: Vote[]
+  bets: Bet[]
+  emergencyVote: EmergencyVote | null
+}
+
+// Type for Lobby with its relations
+type LobbyWithRelations = Lobby & {
+  players: Player[]
+  rounds: RoundWithRelations[]
+}
 
 // Helper function to handle imposter removal
 async function handleImposterRemoval(
-  currentRound: any,
+  currentRound: RoundWithRelations,
   playerIdToRemove: string,
   lobbyId: string,
-  onlinePlayers: any[]
+  onlinePlayers: Player[]
 ) {
   const isImposter = currentRound.imposterId === playerIdToRemove
 
@@ -53,7 +68,7 @@ async function handleImposterRemoval(
 
 // Helper function to adjust turn order during HINTS phase
 async function adjustTurnOrder(
-  currentRound: any,
+  currentRound: RoundWithRelations,
   playerIdToRemove: string,
   lobbyId: string
 ) {
@@ -102,10 +117,10 @@ async function adjustTurnOrder(
 
 // Helper function to check and complete voting if needed
 async function checkVotingCompletion(
-  currentRound: any,
+  currentRound: RoundWithRelations,
   playerIdToRemove: string,
   lobbyId: string,
-  onlinePlayers: any[]
+  onlinePlayers: Player[]
 ) {
   if (currentRound.status !== 'VOTING' && currentRound.status !== 'EMERGENCY_VOTING') {
     return
@@ -151,14 +166,16 @@ async function checkVotingCompletion(
         .map(([playerId]) => playerId)
       const votedOutPlayerId = winners.length === 1 ? winners[0] : null
 
+      const wasImposterCaught = votedOutPlayerId === round.imposterId
+      const mostVoted = votedOutPlayerId || ''
+
       await pusherServer.trigger(`lobby-${lobbyId}`, 'game-event', {
         type: 'VOTING_COMPLETE',
         results: {
-          voteCounts,
-          votedOutPlayerId,
-          winners,
           votes: voteResults,
-          imposterId: round.imposterId
+          correctGuess: wasImposterCaught,
+          imposterId: round.imposterId,
+          mostVoted
         }
       } as PusherEvent)
 
@@ -186,7 +203,7 @@ async function checkVotingCompletion(
 
 // Helper function to handle bet adjustments
 async function handleBetAdjustments(
-  currentRound: any,
+  currentRound: RoundWithRelations,
   playerIdToRemove: string,
   lobbyId: string
 ) {
@@ -224,7 +241,7 @@ async function handleBetAdjustments(
 
 // Helper function to handle host transfer
 async function transferHostIfNeeded(
-  lobby: any,
+  lobby: LobbyWithRelations,
   playerIdToRemove: string
 ) {
   if (lobby.ownerId !== playerIdToRemove) return

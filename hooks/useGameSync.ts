@@ -197,7 +197,6 @@ export function useGameSync({ lobbyId, playerId }: GameSyncProps) {
         case 'GAME_OVER':
           store.updateLobby((lobby) => {
             lobby.state = 'GAME_OVER'
-            lobby.gameInProgress = false
           })
           if (event.winner) {
             store.gameWinner = event.winner

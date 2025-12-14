@@ -8,6 +8,7 @@
 import { useGameStore } from '@/lib/store/gameStore'
 import { prisma } from '@/lib/db'
 import { cleanDatabase, createTestLobby, createTestPlayer } from '../utils/test-helpers'
+import type { VoteResults } from '@/lib/types'
 import { POST as startGame } from '@/app/api/game/start/route'
 import { POST as submitHint } from '@/app/api/game/hint/route'
 
@@ -179,13 +180,14 @@ describe('State Synchronization', () => {
         }
       } as any)
 
-      const results = {
-        voteCounts: {
-          'player1': 2,
-          'player2': 1
+      const results: VoteResults = {
+        votes: {
+          'player1': ['player2', 'player3'],  // player1 got 2 votes
+          'player2': ['player1']  // player2 got 1 vote
         },
-        votedOutPlayerId: 'player1',  // imposter was voted out
-        winners: ['player1']
+        correctGuess: true,  // Imposter was correctly identified and voted out
+        imposterId: 'player1',
+        mostVoted: 'player1'  // imposter was voted out
       }
 
       store.handleVoteComplete(results)
@@ -207,13 +209,14 @@ describe('State Synchronization', () => {
         }
       } as any)
 
-      const results = {
-        voteCounts: {
-          'player1': 1,
-          'player2': 2
+      const results: VoteResults = {
+        votes: {
+          'player1': ['player3'],  // player1 got 1 vote
+          'player2': ['player1', 'player4']  // player2 got 2 votes
         },
-        votedOutPlayerId: 'player2',  // civilian was voted out
-        winners: ['player2']
+        correctGuess: false,
+        imposterId: 'player1',
+        mostVoted: 'player2'  // civilian was voted out
       }
 
       store.handleVoteComplete(results)
@@ -235,13 +238,14 @@ describe('State Synchronization', () => {
         }
       } as any)
 
-      const results = {
-        voteCounts: {
-          'player1': 1,
-          'player2': 1
+      const results: VoteResults = {
+        votes: {
+          'player1': ['player2'],  // player1 got 1 vote
+          'player2': ['player1']  // player2 got 1 vote
         },
-        votedOutPlayerId: null,  // tie, no one voted out
-        winners: ['player1', 'player2']
+        correctGuess: false,
+        imposterId: 'player1',
+        mostVoted: ''  // tie, no one voted out
       }
 
       store.handleVoteComplete(results)
@@ -350,7 +354,7 @@ describe('State Synchronization', () => {
         id: 'p2',
         name: 'Player 2',
         score: 0,
-        isOwner: false
+        isOnline: true
       }
 
       store.handlePlayerJoined(newPlayer)
@@ -394,7 +398,7 @@ describe('State Synchronization', () => {
         id: 'p1',
         name: 'Player 1 Duplicate',
         score: 10,
-        isOwner: true
+        isOnline: true
       }
 
       store.handlePlayerJoined(duplicatePlayer)

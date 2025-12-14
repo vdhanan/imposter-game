@@ -86,11 +86,23 @@ export interface RoundResult {
 export type PusherEvent =
   | { type: 'PLAYER_JOINED'; player: PlayerData }
   | { type: 'PLAYER_LEFT'; playerId: string }
+  | { type: 'PLAYER_REMOVED'; playerId: string; playerName: string }
+  | { type: 'HOST_CHANGED'; newHostId: string }
   | { type: 'GAME_STARTED'; round: RoundData; targetScore: number }
   | { type: 'HINT_SUBMITTED'; hint: HintData }
   | { type: 'TURN_CHANGED'; currentTurn: number; playerId: string }
+  | { type: 'HINTS_COMPLETE' }
   | { type: 'BETTING_STARTED' }
   | { type: 'BET_PLACED'; bet: BetData }
+  | { type: 'BET_RESULTS'; results: Array<{
+      bettorId: string
+      bettorName: string
+      targetId: string
+      targetName: string
+      amount: number
+      isCorrect: boolean
+      payout: number
+    }> }
   | { type: 'VOTING_STARTED' }
   | { type: 'VOTE_CAST'; voterId: string }
   | { type: 'VOTING_COMPLETE'; results: VoteResults }

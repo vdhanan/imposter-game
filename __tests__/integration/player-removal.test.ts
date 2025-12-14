@@ -7,7 +7,6 @@ import { POST as submitHint } from '@/app/api/game/hint/route'
 import { POST as vote } from '@/app/api/game/vote/route'
 import { POST as callEmergencyVote } from '@/app/api/game/emergency-vote/route'
 import { POST as placeBet } from '@/app/api/game/bet/route'
-import type { Request } from 'next/server'
 
 describe('Player Removal and Disconnection', () => {
   beforeEach(async () => {
